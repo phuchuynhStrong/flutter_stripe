@@ -1,6 +1,5 @@
 import 'dart:developer' as dev;
 import 'dart:html';
-import 'dart:js';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
@@ -9,7 +8,8 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_stripe_web/src/utils.dart';
 
 import '../../flutter_stripe_web.dart';
-import '../js/js.dart' as stripe_js;
+import 'package:stripe_js/stripe_js.dart' as js;
+import 'package:stripe_js/stripe_api.dart' as js;
 
 const kCardFieldDefaultHeight = 10.0;
 const kCardFieldDefaultFontSize = 17.0;
@@ -66,8 +66,9 @@ class WebStripeCardState extends State<WebCardField> with CardFieldContext {
     super.initState();
   }
 
-  stripe_js.Element? get element => WebStripe.element;
-  set element(stripe_js.Element? value) => WebStripe.element = value;
+  js.CardPaymentElement? get element =>
+      WebStripe.element as js.CardPaymentElement?;
+  set element(js.CardPaymentElement? value) => WebStripe.element = value;
 
   void initStripe() {
     attachController(controller);
@@ -84,11 +85,13 @@ class WebStripeCardState extends State<WebCardField> with CardFieldContext {
             const CardFieldInputDetails(complete: false),
             controller,
           );
-          element = WebStripe.js.elements().createCard(createOptions())
+          element = WebStripe.js
+              .elements(createElementOptions())
+              .createCard(createOptions())
             ..mount('#card-element')
-            ..on('blur', allowInterop(requestBlur))
-            ..on('focus', allowInterop(requestFocus))
-            ..on('change', allowInterop(onCardChanged));
+            ..onBlur(requestBlur)
+            ..onFocus(requestFocus)
+            ..onChange(onCardChanged);
         });
       }
     });
@@ -102,23 +105,18 @@ class WebStripeCardState extends State<WebCardField> with CardFieldContext {
     _effectiveNode.requestFocus();
   }
 
-  void onCardChanged(response) {
-    if (response is stripe_js.ElementChangeResponse) {
-      String? postalCode;
-      final value = response.value;
-      if (value is stripe_js.ElementChangeValueOptionsResponse) {
-        postalCode = value.postalCode;
-      }
-      final details = CardFieldInputDetails(
-        complete: response.complete,
-        brand: response.brand,
-        postalCode: postalCode,
-      );
-      widget.onCardChanged?.call(details);
-      updateCardDetails(details, controller);
-      return;
-    }
-    throw 'On Card Element should be type ElementChangeResponse';
+  void onCardChanged(js.CardElementChangeEvent response) {
+    final value = response.value;
+    final postalCode = value?.postalCode;
+
+    final details = CardFieldInputDetails(
+      complete: response.complete,
+      brand: response.brand,
+      postalCode: postalCode,
+    );
+    widget.onCardChanged?.call(details);
+    updateCardDetails(details, controller);
+    return;
   }
 
   final FocusNode _focusNode = FocusNode(debugLabel: 'CardField');
@@ -141,8 +139,26 @@ class WebStripeCardState extends State<WebCardField> with CardFieldContext {
     );
   }
 
-  stripe_js.ElementsOptions createOptions() {
-    return stripe_js.ElementsOptions(
+  js.JsElementsCreateOptions createElementOptions() {
+    final textColor = widget.style?.textColor;
+    return js.JsElementsCreateOptions(
+      appearance: js.jsify(
+        js.ElementAppearance(
+          theme: js.ElementTheme.stripe,
+          variables: {
+            if (textColor != null) 'colorText': colorToCssString(textColor),
+          },
+        ).toJson(),
+      ) as js.JsElementAppearance,
+    );
+  }
+
+  String colorToCssString(Color color) {
+    return 'rgb(${color.red}, ${color.green}, ${color.blue})';
+  }
+
+  js.CardElementOptions createOptions() {
+    return js.CardElementOptions(
       hidePostalCode: !widget.enablePostalCode,
     );
   }

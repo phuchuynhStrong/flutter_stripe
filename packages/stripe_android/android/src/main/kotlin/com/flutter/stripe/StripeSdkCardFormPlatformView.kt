@@ -9,7 +9,9 @@ import androidx.annotation.NonNull
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.ThemedReactContext
 import com.reactnativestripesdk.*
-import com.stripe.android.databinding.CardMultilineWidgetBinding
+import com.reactnativestripesdk.utils.getIntOrNull
+import com.reactnativestripesdk.utils.getValOr
+import com.stripe.android.databinding.StripeCardMultilineWidgetBinding
 import com.stripe.android.databinding.StripeCardFormViewBinding
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -45,6 +47,9 @@ class StripeSdkCardFormPlatformView(
         }
         if (creationParams?.containsKey("autofocus") == true) {
             cardFormViewManager.setAutofocus(cardView, creationParams["autofocus"] as Boolean)
+        }
+        if (creationParams?.containsKey("disabled") == true) {
+            cardFormViewManager.setDisabled(cardView, creationParams["disabled"] as Boolean)
         }
         if (creationParams?.containsKey("cardDetails") == true) {
             val value = ReadableMap(creationParams["cardDetails"] as Map<String, Any>)
@@ -99,8 +104,13 @@ class StripeSdkCardFormPlatformView(
                 cardFormViewManager.setAutofocus(cardView, arguments.getBoolean("autofocus"))
                 result.success(null)
             }
+            "disabled" -> {
+                val arguments = ReadableMap(call.arguments as Map<String, Any>)
+                cardFormViewManager.setDisabled(cardView, arguments.getBoolean("disabled"))
+                result.success(null)
+            }
             "requestFocus" -> {
-                val binding = CardMultilineWidgetBinding.bind(cardView.cardForm)
+                val binding = StripeCardMultilineWidgetBinding.bind(cardView.cardForm)
                 binding.etCardNumber.requestFocus()
                 val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
                 imm.toggleSoftInput(InputMethodManager.SHOW_FORCED, InputMethodManager.HIDE_IMPLICIT_ONLY);

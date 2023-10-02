@@ -1,7 +1,9 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import 'address.dart';
+import 'capture_method.dart';
 import 'next_action.dart';
+import 'payment_methods.dart';
 
 part 'payment_intents.freezed.dart';
 part 'payment_intents.g.dart';
@@ -61,19 +63,13 @@ class PaymentIntent with _$PaymentIntent {
 
     /// Shipping information of the payment intent.
     ShippingDetails? shipping,
+
+    /// Mandata data for this paymentintent.
+    MandateData? mandateData,
   }) = _PaymentIntent;
 
   factory PaymentIntent.fromJson(Map<String, dynamic> json) =>
       _$PaymentIntentFromJson(json);
-}
-
-/// Defines how the money will be captured from the customer's account.
-enum CaptureMethod {
-  /// Reserve the funds but the customer has to authorize the payment.
-  Manual,
-
-  /// Funds are automatically captured by stripe
-  Automatic,
 }
 
 /// Defines how the payment will be confirmed.
@@ -83,6 +79,9 @@ enum ConfirmationMethod {
 
   /// Payment intent will be confirmed using the publishable key.
   Automatic,
+
+  /// Unknown confirmation method.
+  Unknown,
 }
 
 //nextActionMap.putString("type", "urlRedirect")

@@ -4,7 +4,7 @@
 
 # Flutter Stripe
 
-[![pub package](https://img.shields.io/pub/v/flutter_stripe.svg)](https://pub.dev/packages/flutter_stripe) ![build](https://img.shields.io/github/workflow/status/flutter-stripe/flutter_stripe/all_plugins?logo=github)
+[![pub package](https://img.shields.io/pub/v/flutter_stripe.svg)](https://pub.dev/packages/flutter_stripe) ![build](https://img.shields.io/github/actions/workflow/status/flutter-stripe/flutter_stripe/all_plugins.yaml?logo=github?branch=main)
 
 The Stripe Flutter SDK allows you to build delightful payment experiences in your native Android and iOS apps using Flutter. We provide powerful and customizable UI screens and elements that can be used out-of-the-box to collect your users' payment details.
 
@@ -60,20 +60,25 @@ If you are having troubles to make this package to work on Android, join [this d
 
 #### iOS
 
-Compatible with apps targeting iOS 12 or above.
+Compatible with apps targeting iOS 13 or above.
 
-To upgrade your iOS deployment target to 12.0, you can either do so in Xcode under your Build Settings, or by modifying IPHONEOS_DEPLOYMENT_TARGET in your project.pbxproj directly.
+To upgrade your iOS deployment target to 13.0, you can either do so in Xcode under your Build Settings, or by modifying IPHONEOS_DEPLOYMENT_TARGET in your project.pbxproj directly.
 
 You will also need to update in your Podfile:
 
-`platform :ios, '12.0'`
-
+`platform :ios, '13.0'`
 
 #### Web (Experimental)
 
-Now you can use Stripe with Flutter web! Notice right now it is highly experimental and only a subset of features is implemented.
+Now you can use Stripe with Flutter web! Notice right now it is highly experimental and only a subset of features is implemented. Namely:
 
-Check the steps needed [here](https://github.com/flutter-stripe/flutter_stripe/tree/main/packages/stripe_web)
+- Create paymentmethod
+- Confirm payment intent
+- Confirm setup intent
+- Create token
+- Confirm payment element (recommended way of handling payments on web)
+
+To use Stripe on web, it is required to add `flutter_stripe_web` in your pubspec file
 
 ## Usage
 
@@ -85,7 +90,7 @@ Method        | Ease of use   | description                                     
 ------------- | ------------- |----------------------------------------------------------------------------------------------------------------- | ------------------- |
 Payment sheet | Easy          | Our recommended way of handling payments. It offers localization, animations and error handling out of the box.  | [docs](https://docs.page/flutter-stripe/flutter_stripe/sheet) |
 Cardfield     | Medium        | Single line cardfield. Offers more flexibility but has less built-in functionality.                              | [docs](https://docs.page/flutter-stripe/flutter_stripe/card_field)   |
-Card form     | Medium        | Simular as the cardfield but the entry fields are spread across multi lines                                      | [docs](https://docs.page/flutter-stripe/flutter_stripe/card_field)   |
+Card form     | Medium        | Similar as the cardfield but the entry fields are spread across multi lines                                      | [docs](https://docs.page/flutter-stripe/flutter_stripe/card_field)   |
 
 
 ### Financial connections
@@ -151,10 +156,16 @@ Future<void> onGooglePayResult(paymentResult) async {
   - [Get your test Stripe API keys](https://stripe.com/docs/keys)
   - `cp lib/.env.example.dart lib/.env.dart` and set your Stripe publishable key.
   - `cp server/.env.example server/.env` and set the variable values in your newly created `.env` file.
-- Install the server dependencies: `npm install` or `yarn --cwd "server"`
+- Install the server dependencies in the `server` directory: 
+  * `cd server`
+  * `npm install` or `yarn --cwd "server"`
 - Start the example
-  - Terminal 1: `npm start` or `yarn --cwd "server" start`
-  - Terminal 2: `flutter run`
+  - Terminal 1: 
+    * Move to the `server` directory: `cd server`
+    * Run npm or yarn: `npm start` or `yarn --cwd "server" start`
+  - Terminal 2: 
+    * Move to the `lib` directory: `cd lib`
+    * Run flutter: `flutter run`
 
 ##### Additional steps for webhook forwarding
 

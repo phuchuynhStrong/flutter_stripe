@@ -10,9 +10,11 @@ import UIKit
 
 class ApplePayButtonViewFactory: NSObject, FlutterPlatformViewFactory {
     private var messenger: FlutterBinaryMessenger
+    private var stripeSdk: StripeSdk
     
-    init(messenger: FlutterBinaryMessenger) {
+    init(messenger: FlutterBinaryMessenger, stripeSdk: StripeSdk) {
         self.messenger = messenger
+        self.stripeSdk = stripeSdk
         super.init()
     }
 
@@ -21,12 +23,18 @@ class ApplePayButtonViewFactory: NSObject, FlutterPlatformViewFactory {
         viewIdentifier viewId: Int64,
         arguments args: Any?
     ) -> FlutterPlatformView {
-        return ApplePayButtonView(
+        let applePayButton = ApplePayButtonView(
             frame: frame,
             viewIdentifier: viewId,
             arguments: args,
             binaryMessenger: messenger)
+        
+        applePayButton.stripeSdk = stripeSdk
+        
+        return applePayButton
     }
+    
+  
     
     func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
        return FlutterStandardMessageCodec.sharedInstance()
@@ -35,17 +43,28 @@ class ApplePayButtonViewFactory: NSObject, FlutterPlatformViewFactory {
 
 class ApplePayButtonView: NSObject, FlutterPlatformView {
     private var _view: UIView
-    var type: NSNumber?
-    var style: NSNumber?
-    var cornerRadius: CGFloat = 4.0
-    
-    
-    private var applePayButton: PKPaymentButton?
     
     private let channel: FlutterMethodChannel
     
+    var applePayButton: PKPaymentButton?
+    var stripeSdk: StripeSdk?
+    
+    @objc var onShippingMethodSelectedAction: RCTDirectEventBlock?
+    @objc var onShippingContactSelectedAction: RCTDirectEventBlock?
+    @objc var onCouponCodeEnteredAction: RCTDirectEventBlock?
+    @objc var onOrderTrackingAction: RCTDirectEventBlock?
+    
+    @objc var type: NSNumber?
+    @objc var buttonStyle: NSNumber?
+    @objc var borderRadius: NSNumber?
+    @objc var disabled = false
+    
+    func doesNothing(_: Optional<Dictionary<AnyHashable, Any>>) {
+        return
+    }
+    
     @objc func handleApplePayButtonTapped() {
-       channel.invokeMethod("onPressed", arguments: nil)
+        channel.invokeMethod("onPressed", arguments: nil)
     }
 
     init(
@@ -58,10 +77,14 @@ class ApplePayButtonView: NSObject, FlutterPlatformView {
                                            binaryMessenger: messenger)
         _view = UIView()
         super.init()
+        onShippingContactSelectedAction = onShippingContactSelected
+        onShippingMethodSelectedAction = onShippingMethodSelected
+        onCouponCodeEnteredAction = onCouponCodeEntered
+        onOrderTrackingAction = onOrderTracking
         if  let arguments = args as? Dictionary<String, AnyObject> {
             type = arguments["type"] as? NSNumber
-            style = arguments["style"] as? NSNumber
-            cornerRadius = arguments["cornerRadius"] as! CGFloat
+            buttonStyle = arguments["style"] as? NSNumber
+            borderRadius = arguments["borderRadius"] as? NSNumber
         }
         // iOS views can be created here
         createApplePayView()
@@ -69,18 +92,39 @@ class ApplePayButtonView: NSObject, FlutterPlatformView {
     }
     
     
+    func onShippingContactSelected(_ arguments: Dictionary<AnyHashable, Any>?) {
+        channel.invokeMethod("onShippingContactSelected", arguments: arguments)
+    }
+    
+    func onShippingMethodSelected(_ arguments: Dictionary<AnyHashable, Any>?) {
+        channel.invokeMethod("onShippingMethodSelected", arguments: arguments)
+    }
+    
+    func onCouponCodeEntered(_ arguments: Dictionary<AnyHashable, Any>?) {
+        channel.invokeMethod("onCouponCodeEntered", arguments: arguments)
+    }
+    
+    func onOrderTracking(_ arguments: Dictionary<AnyHashable, Any>?) {
+        channel.invokeMethod("onOrderTracking", arguments: arguments)
+    }
+    
     
     public func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
         switch call.method {
         case "updateStyle":
             if  let arguments = call.arguments as? Dictionary<String, AnyObject> {
                 self.type = arguments["type"] as? NSNumber
-                self.style = arguments["style"] as? NSNumber
-                self.cornerRadius = arguments["cornerRadius"] as! CGFloat
+                self.buttonStyle = arguments["style"] as? NSNumber
+                self.borderRadius = arguments["borderRadius"] as? NSNumber
             }
             
             self.createApplePayView()
-       
+        case "updateHandlers":
+            if  let arguments = call.arguments as? Dictionary<String, AnyObject> {
+                self.updateHandlers(arguments: arguments)
+            }
+            
+            
           result(nil)
         default:
             result(FlutterMethodNotImplemented)
@@ -90,15 +134,42 @@ class ApplePayButtonView: NSObject, FlutterPlatformView {
     func view() -> UIView {
         return _view
     }
+    
+    func updateHandlers(arguments: Dictionary<String, AnyObject> ) {
+        if(arguments["onShippingContactSelected"] as? Bool == true) {
+            stripeSdk?.shippingContactUpdateJSCallback = onShippingContactSelectedAction
+        } else {
+            stripeSdk?.shippingContactUpdateJSCallback = nil
+        }
+        
+        if(arguments["onShippingMethodSelected"] as? Bool == true) {
+            stripeSdk?.shippingMethodUpdateJSCallback = onShippingMethodSelectedAction
+        } else {
+            stripeSdk?.shippingMethodUpdateJSCallback = nil
+        }
+       
+        if(arguments["onCouponCodeEntered"] as? Bool == true) {
+            stripeSdk?.couponCodeEnteredJSCallback = onCouponCodeEnteredAction
+        } else {
+            stripeSdk?.couponCodeEnteredJSCallback = nil
+        }
+        
+        if(arguments["onOrderTracking"] as? Bool == true) {
+            stripeSdk?.platformPayOrderTrackingJSCallback = onOrderTrackingAction
+        } else {
+            stripeSdk?.platformPayOrderTrackingJSCallback = nil
+        }
+       
+    }
 
     func createApplePayView(){
         
        if let applePayButton = self.applePayButton {
          applePayButton.removeFromSuperview()
        }
-       let paymentButtonType = PKPaymentButtonType(rawValue: self.type as? Int ?? 0) ?? .plain
-       let paymentButtonStyle = PKPaymentButtonStyle(rawValue: self.style as? Int ?? 2) ?? .black
-       self.applePayButton = PKPaymentButton(paymentButtonType: paymentButtonType, paymentButtonStyle: paymentButtonStyle)
+        let paymentButtonType = PKPaymentButtonType(rawValue: self.type as? Int ?? 0) ?? .plain
+        let paymentButtonStyle = PKPaymentButtonStyle(rawValue: self.buttonStyle as? Int ?? 2) ?? .black
+        self.applePayButton = PKPaymentButton(paymentButtonType: paymentButtonType, paymentButtonStyle: paymentButtonStyle)
       
         if let applePayButton = self.applePayButton {
            applePayButton.translatesAutoresizingMaskIntoConstraints = false
@@ -111,7 +182,7 @@ class ApplePayButtonView: NSObject, FlutterPlatformView {
            applePayButton.rightAnchor.constraint(equalTo: _view.rightAnchor).isActive = true
 
            if #available(iOS 12.0, *) {
-               applePayButton.cornerRadius = cornerRadius
+               applePayButton.cornerRadius = self.borderRadius as? CGFloat ?? 4.0
            }
         }
     }

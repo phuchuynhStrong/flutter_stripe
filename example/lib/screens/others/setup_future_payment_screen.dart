@@ -127,7 +127,7 @@ class _SetupFuturePaymentScreenState extends State<SetupFuturePaymentScreen> {
       // 3. Confirm setup intent
 
       final setupIntentResult = await Stripe.instance.confirmSetupIntent(
-      paymentIntentClientSecret:  clientSecret,
+        paymentIntentClientSecret: clientSecret,
         params: PaymentMethodParams.card(
           paymentMethodData: PaymentMethodData(
             billingDetails: billingDetails,
@@ -146,10 +146,10 @@ class _SetupFuturePaymentScreenState extends State<SetupFuturePaymentScreen> {
         step = 1;
         _setupIntentResult = setupIntentResult;
       });
-    } catch (error, s) {
-      log('Error while saving payment', error: error, stackTrace: s);
+    } catch (error) {
       ScaffoldMessenger.of(context)
           .showSnackBar(SnackBar(content: Text('Error code: $error')));
+      rethrow;
     }
   }
 

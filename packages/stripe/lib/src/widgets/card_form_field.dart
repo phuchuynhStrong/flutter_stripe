@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'dart:developer' as dev;
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -9,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 
 import '../utils.dart';
+import 'keep_visible_on_focus.dart';
 
 /// Customizable form that collects card information.
 ///
@@ -16,18 +18,19 @@ import '../utils.dart';
 /// ![Sripe Card Form]
 /// (https://github.com/flutter-stripe/flutter_stripe/tree/main/docs/assets/card_form.png)
 class CardFormField extends StatefulWidget {
-  const CardFormField(
-      {this.onCardChanged,
-      Key? key,
-      this.onFocus,
-      this.enablePostalCode = true,
-      this.countryCode,
-      this.style,
-      this.autofocus = false,
-      this.dangerouslyGetFullCardDetails = false,
-      this.dangerouslyUpdateFullCardDetails = false,
-      this.controller})
-      : super(key: key);
+  const CardFormField({
+    this.onCardChanged,
+    Key? key,
+    this.onFocus,
+    this.enablePostalCode = true,
+    this.countryCode,
+    this.style,
+    this.autofocus = false,
+    this.dangerouslyGetFullCardDetails = false,
+    this.dangerouslyUpdateFullCardDetails = false,
+    this.disabled = false,
+    this.controller,
+  }) : super(key: key);
 
   /// Callback that will be executed when a specific field gets focus.
   final CardFocusCallback? onFocus;
@@ -47,7 +50,7 @@ class CardFormField extends StatefulWidget {
   /// make sure this one is set to `true`.
   final bool enablePostalCode;
 
-  /// Controls the postal code entry shown (when `enablePostalCode` is set to true).
+  /// Android only: Controls the postal code entry shown (when `enablePostalCode` is set to true).
   ///
   /// Defaults to the device's default locale. This is not supported on the web.
 
@@ -78,6 +81,11 @@ class CardFormField extends StatefulWidget {
   /// Default is `false`.
   final bool dangerouslyUpdateFullCardDetails;
 
+  /// When true it applies a state that does not allow the user to interact with
+  /// the card form field.
+  /// Default is `false`.
+  final bool disabled;
+
   @override
   // ignore: library_private_types_in_public_api
   _CardFormFieldState createState() => _CardFormFieldState();
@@ -86,6 +94,8 @@ class CardFormField extends StatefulWidget {
 abstract class CardFormFieldContext {
   void focus();
   void blur();
+
+  /// Only supported on Android will throw [UnimplementedError] on iOS.
   void clear();
 
   void dangerouslyUpdateCardDetails(CardFieldInputDetails details);
@@ -183,6 +193,7 @@ class _CardFormFieldState extends State<CardFormField> {
       enablePostalCode: widget.enablePostalCode,
       onCardChanged: widget.onCardChanged,
       autofocus: widget.autofocus,
+      disabled: widget.disabled,
       onFocus: widget.onFocus,
       countryCode: widget.countryCode,
     );
@@ -204,10 +215,11 @@ class _MethodChannelCardFormField extends StatefulWidget {
     double? width,
     double? height,
     BoxConstraints? constraints,
-    this.focusNode,
+    required this.focusNode,
     this.dangerouslyGetFullCardDetails = false,
     this.dangerouslyUpdateFullCardDetails = false,
     this.autofocus = false,
+    this.disabled = false,
     this.countryCode,
   })  : assert(constraints == null || constraints.debugAssertIsValid()),
         constraints = (width != null || height != null)
@@ -221,8 +233,9 @@ class _MethodChannelCardFormField extends StatefulWidget {
   final CardChangedCallback? onCardChanged;
   final CardFormStyle? style;
   final bool enablePostalCode;
-  final FocusNode? focusNode;
+  final FocusNode focusNode;
   final bool autofocus;
+  final bool disabled;
   final CardFormEditController controller;
   final bool dangerouslyGetFullCardDetails;
   final bool dangerouslyUpdateFullCardDetails;
@@ -245,10 +258,6 @@ class _MethodChannelCardFormField extends StatefulWidget {
 class _MethodChannelCardFormFieldState
     extends State<_MethodChannelCardFormField> with CardFormFieldContext {
   MethodChannel? _methodChannel;
-
-  final _focusNode =
-      FocusNode(debugLabel: 'CardFormField', descendantsAreFocusable: false);
-  FocusNode get _effectiveNode => widget.focusNode ?? _focusNode;
 
   CardFormStyle? _lastStyle;
 
@@ -283,7 +292,7 @@ class _MethodChannelCardFormFieldState
     if (controller._context == this) {
       controller._context = null;
     }
-    _focusNode.dispose();
+
     super.dispose();
   }
 
@@ -299,6 +308,7 @@ class _MethodChannelCardFormFieldState
           controller._initalDetails != null)
         'cardDetails': controller._initalDetails?.toJson(),
       'autofocus': widget.autofocus,
+      'disabled': widget.disabled,
       'defaultValues': {
         'countryCode': widget.countryCode,
       }
@@ -315,20 +325,23 @@ class _MethodChannelCardFormFieldState
     } else if (defaultTargetPlatform == TargetPlatform.iOS) {
       platform = Listener(
         onPointerDown: (_) {
-          if (!_effectiveNode.hasFocus) {
-            _effectiveNode.requestFocus();
+          if (!widget.focusNode.hasFocus) {
+            widget.focusNode.requestFocus();
           }
         },
         child: Focus(
           autofocus: widget.autofocus,
           descendantsAreFocusable: true,
-          focusNode: _effectiveNode,
+          focusNode: widget.focusNode,
           onFocusChange: _handleFrameworkFocusChanged,
-          child: _UiKitCardFormField(
-            key: _MethodChannelCardFormField._key,
-            viewType: _MethodChannelCardFormField._viewType,
-            creationParams: creationParams,
-            onPlatformViewCreated: onPlatformViewCreated,
+          child: KeepVisibleOnFocus(
+            focusNode: widget.focusNode,
+            child: _UiKitCardFormField(
+              key: _MethodChannelCardFormField._key,
+              viewType: _MethodChannelCardFormField._viewType,
+              creationParams: creationParams,
+              onPlatformViewCreated: onPlatformViewCreated,
+            ),
           ),
         ),
       );
@@ -402,7 +415,7 @@ class _MethodChannelCardFormFieldState
   }
 
   void onPlatformViewCreated(int viewId) {
-    _focusNode.debugLabel = 'CardFormField(id: $viewId)';
+    widget.focusNode.debugLabel = 'CardFormField(id: $viewId)';
     _methodChannel = MethodChannel('flutter.stripe/card_form_field/$viewId');
     _methodChannel?.setMethodCallHandler((call) async {
       if (call.method == 'topFocusChange') {
@@ -439,8 +452,8 @@ class _MethodChannelCardFormFieldState
       final field = CardFieldFocusName.fromJson(map);
       if (field.focusedField != null &&
           ambiguate(WidgetsBinding.instance)?.focusManager.primaryFocus !=
-              _effectiveNode) {
-        _effectiveNode.requestFocus();
+              widget.focusNode) {
+        widget.focusNode.requestFocus();
       }
       widget.onFocus?.call(field.focusedField);
       // ignore: avoid_catches_without_on_clauses
@@ -460,10 +473,10 @@ class _MethodChannelCardFormFieldState
     setState(() {});
     if (!isFocused) {
       blur();
+      focus();
+
       return;
     }
-
-    focus();
   }
 
   @override
@@ -473,6 +486,9 @@ class _MethodChannelCardFormFieldState
 
   @override
   void clear() {
+    if (Platform.isIOS) {
+      throw UnimplementedError('This method is not supported for iOS');
+    }
     _methodChannel?.invokeMethod('clear');
   }
 
@@ -484,9 +500,14 @@ class _MethodChannelCardFormFieldState
   @override
   void dangerouslyUpdateCardDetails(CardFieldInputDetails details) {
     assert(widget.dangerouslyUpdateFullCardDetails, kDebugPCIMessage);
-    _methodChannel?.invokeMethod('dangerouslyUpdateCardDetails', {
-      'cardDetails': details.toJson(),
-    });
+    Stripe.instance.dangerouslyUpdateCardDetails(
+      CardDetails(
+        number: details.number,
+        cvc: details.cvc,
+        expirationMonth: details.expiryMonth,
+        expirationYear: details.expiryYear,
+      ),
+    );
   }
 }
 
@@ -555,7 +576,7 @@ class _UiKitCardFormField extends StatelessWidget {
   }
 }
 
-const kCardFormFieldDefaultAndroidHeight = 270.0;
+const kCardFormFieldDefaultAndroidHeight = 292.0;
 const kCardFormFieldDefaultIOSHeight = 192.0;
 const kCardFormFieldDefaultFontSize = 17;
 const kCardFormFieldDefaultTextColor = Colors.black;

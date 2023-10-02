@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:meta/meta.dart';
 import 'package:stripe_platform_interface/stripe_platform_interface.dart';
 
 /// [Stripe] is the facade of the library and exposes the operations that can be
@@ -109,27 +110,136 @@ class Stripe {
         setReturnUrlSchemeOnAndroid: setReturnUrlSchemeOnAndroid,
       );
 
-  /// Exposes a [ValueListenable] whether or not Apple pay is supported for this
-  /// device.
-  ///
-  /// Always returns false on non Apple platforms.
-  ValueListenable<bool> get isApplePaySupported {
-    if (_isApplePaySupported == null) {
-      _isApplePaySupported = ValueNotifier(false);
-      checkApplePaySupport();
+  /// Exposes a [ValueListenable] whether or not GooglePay (on Android) or Apple Pay (on iOS)
+  /// is supported for this device.
+  ValueListenable<bool> get isPlatformPaySupportedListenable {
+    if (_isPlatformPaySupported == null) {
+      _isPlatformPaySupported = ValueNotifier(false);
+      isPlatformPaySupported();
     }
-    return _isApplePaySupported!;
+    return _isPlatformPaySupported!;
   }
 
-  ///Checks if Apple pay is supported on this device.
+  /// Check if the relevant native wallet (Apple Pay on iOS and Google Pay on Android)
+  /// is supported.
   ///
-  /// Always returns false on non Apple devices.
-  Future<bool> checkApplePaySupport() async {
+  /// The [googlePay] param can be provided to check if platform pay is supported on
+  /// Google Pay test env or if a payment method is required.
+  Future<bool> isPlatformPaySupported({
+    IsGooglePaySupportedParams? googlePay,
+  }) async {
     await _awaitForSettings();
-    final isSupported = await _platform.isApplePaySupported();
-    _isApplePaySupported ??= ValueNotifier(false);
-    _isApplePaySupported?.value = isSupported;
+    final isSupported =
+        await _platform.isPlatformPaySupported(params: googlePay);
+
+    _isPlatformPaySupported ??= ValueNotifier(false);
+    _isPlatformPaySupported?.value = isSupported;
     return isSupported;
+  }
+
+  /// Laucnhes the relevant native wallsheet (Apple Pay on iOS and Google Pay on Android)
+  /// in order to create a payment intent
+  ///
+  /// Argument [params] is describing the the Apple Pay or Google pay configuration.
+  /// Creating payment method does not return a token by default. Use `usesDeprecatedTokenFlow` instead.
+  ///
+  /// throws [StripeError] in case creating payment method is failing.
+  Future<PaymentMethod> createPlatformPayPaymentMethod({
+    required PlatformPayPaymentMethodParams params,
+    bool usesDeprecatedTokenFlow = false,
+  }) async {
+    try {
+      await _awaitForSettings();
+      return await _platform.platformPayCreatePaymentMethod(
+        params: params,
+        usesDeprecatedTokenFlow: usesDeprecatedTokenFlow,
+      );
+    } on StripeError {
+      rethrow;
+    }
+  }
+
+  /// Launches the relevant native wallet sheet (Apple Pay on iOS and Google Pay on Android)
+  /// in order to confirm a Stripe setup intent.
+  ///
+  /// The [clientSecret] is the secret of the SetupIntent. [ConfirmParams] are
+  /// parameters describing the GooglePay and Apple Pay configuration.
+  ///
+  /// Throws an [StripeError] in case confirmPlatformPaySetupIntent fails.
+  Future<SetupIntent> confirmPlatformPaySetupIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams confirmParams,
+  }) async {
+    try {
+      await _awaitForSettings();
+
+      return _platform.platformPayConfirmSetupIntent(
+        clientSecret: clientSecret,
+        params: confirmParams,
+      );
+    } on StripeError {
+      rethrow;
+    }
+  }
+
+  /// Launches the relevant native wallet sheet (Apple Pay on iOS an Google Pay on Android)
+  /// in order to confirm a Stripe payment intent.
+  ///
+  /// The [clientSecret] is the secret of the PaymentIntent. [ConfirmParams] are
+  /// parameters describing the GooglePay and Apple Pay configuration.
+  ///
+  /// Throws an [StripeError] in case confirmPlatformPaySetupIntent fails.
+  Future<PaymentIntent> confirmPlatformPayPaymentIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams confirmParams,
+  }) async {
+    try {
+      await _awaitForSettings();
+
+      return _platform.platformPayConfirmPaymentIntent(
+        clientSecret: clientSecret,
+        params: confirmParams,
+      );
+    } on StripeError {
+      rethrow;
+    }
+  }
+
+  @internal
+  bool debugUpdatePlatformSheetCalled = false;
+
+  /// Updates the native payment sheet with new data **iOS-only.
+  ///
+  /// For example this method is required to call when the user updates shippingmethod, shippingAddress and couponcode.
+  Future<void> updatePlatformSheet({
+    required PlatformPaySheetUpdateParams params,
+  }) async {
+    await _awaitForSettings();
+    assert(() {
+      debugUpdatePlatformSheetCalled = true;
+      return true;
+    }());
+    debugUpdatePlatformSheetCalled = true;
+    return _platform.updatePlatformSheet(params: params);
+  }
+
+  @internal
+  bool debugConfigurePlatformOrderTrackingCalled = false;
+
+  /// Updates the native payment sheet with new order tracking information
+  /// **iOS-only.
+  ///
+  /// This method is required to call when the onOrderTracking is
+  /// called
+  Future<void> configurePlatformOrderTracking({
+    required PlatformPayOrderDetails orderDetails,
+  }) async {
+    await _awaitForSettings();
+    assert(() {
+      debugConfigurePlatformOrderTrackingCalled = true;
+      return true;
+    }());
+    return _platform.configurePlatformOrderTracking(orderDetails: orderDetails);
   }
 
   /// Creates a single-use token that represents an Apple Pay credit card’s details.
@@ -199,53 +309,22 @@ class Stripe {
     }
   }
 
+  /// Retrieves a [SetupIntent] using the provided [clientSecret].
+  ///
+  /// Throws a [StripeException] in case retrieving the intent fails.
+  Future<SetupIntent> retrieveSetupIntent(String clientSecret) async {
+    await _awaitForSettings();
+    try {
+      final setupIntent = await _platform.retrieveSetupIntent(clientSecret);
+      return setupIntent;
+    } on StripeError catch (error) {
+      throw StripeError(message: error.message, code: error.message);
+    }
+  }
+
   /// Opens the UI to set up credit cards for Apple Pay.
   Future<void> openApplePaySetup() async {
     await _platform.openApplePaySetup();
-  }
-
-  /// Presents an Apple payment sheet using [params] for additional
-  /// configuration. See [ApplePayPresentParams] for more details.
-  ///
-  /// Throws an [StripeError] in case presenting the payment sheet fails.
-  Future<void> presentApplePay({
-    required ApplePayPresentParams params,
-    OnDidSetShippingContact? onDidSetShippingContact,
-    OnDidSetShippingMethod? onDidSetShippingMethod,
-  }) async {
-    await _awaitForSettings();
-    if (!isApplePaySupported.value) {
-      //throw StripeError<ApplePayError>
-      //(ApplePayError.canceled, 'APPLE_PAY_NOT_SUPPORTED_MESSAGE');
-    }
-    try {
-      await _platform.presentApplePay(
-        params,
-        onDidSetShippingContact,
-        onDidSetShippingMethod,
-      );
-    } on StripeError {
-      rethrow;
-    }
-  }
-
-  /// Confirms the Apple pay payment using the provided [clientSecret].
-  /// Use this method when the form is being submitted.
-  ///
-  /// Throws an [StripeError] in confirming the payment fails.
-  Future<void> confirmApplePayPayment(
-    String clientSecret,
-  ) async {
-    await _awaitForSettings();
-    if (!isApplePaySupported.value) {
-      //throw StripeError<ApplePayError>
-      //(ApplePayError.canceled, 'APPLE_PAY_NOT_SUPPORTED_MESSAGE');
-    }
-    try {
-      await _platform.confirmApplePayPayment(clientSecret);
-    } on StripeError {
-      rethrow;
-    }
   }
 
   /// Handle URL callback from iDeal payment returnUrl to close iOS in-app webview
@@ -287,16 +366,34 @@ class Stripe {
   /// several seconds and it is important to not resubmit the form.
   ///
   /// Throws a [StripeException] when confirming the handle card action fails.
-  Future<PaymentIntent> handleNextAction(
-    String paymentIntentClientSecret,
-  ) async {
+  Future<PaymentIntent> handleNextAction(String paymentIntentClientSecret,
+      {String? returnURL}) async {
     await _awaitForSettings();
     try {
-      final paymentIntent =
-          await _platform.handleNextAction(paymentIntentClientSecret);
+      final paymentIntent = await _platform
+          .handleNextAction(paymentIntentClientSecret, returnURL: returnURL);
       return paymentIntent;
     } on StripeError {
       //throw StripeError<CardActionError>(error.code, error.message);
+      rethrow;
+    }
+  }
+
+  /// Use this method in case the [SetupIntent] status is
+  /// [PaymentIntentsStatus.RequiresAction]. Executing this action can take
+  /// several seconds and it is important to not resubmit the form.
+  ///
+  /// Throws a [StripeException] when confirming the handle card action fails.
+  Future<SetupIntent> handleNextActionForSetupIntent(
+      String setupIntentClientSecret,
+      {String? returnURL}) async {
+    await _awaitForSettings();
+    try {
+      final paymentIntent = await _platform.handleNextActionForSetupIntent(
+          setupIntentClientSecret,
+          returnURL: returnURL);
+      return paymentIntent;
+    } on StripeError {
       rethrow;
     }
   }
@@ -346,7 +443,7 @@ class Stripe {
   ///
   /// See [SetupPaymentSheetParameters] for more info. In order to show the
   /// payment sheet it is required to call [presentPaymentSheet].
-  Future<void> initPaymentSheet({
+  Future<PaymentSheetPaymentOption?> initPaymentSheet({
     required SetupPaymentSheetParameters paymentSheetParameters,
   }) async {
     assert(
@@ -354,7 +451,7 @@ class Stripe {
             instance._merchantIdentifier == null),
         'merchantIdentifier must be specified if you are using Apple Pay. Please refer to this article to get a merchant identifier: https://support.stripe.com/questions/enable-apple-pay-on-your-stripe-account');
     await _awaitForSettings();
-    await _platform.initPaymentSheet(paymentSheetParameters);
+    return _platform.initPaymentSheet(paymentSheetParameters);
   }
 
   /// Displays the paymentsheet
@@ -362,14 +459,24 @@ class Stripe {
   /// See [PresentPaymentSheetPameters] for more details
   ///
   /// throws [StripeException] in case of a failure
-  Future<void> presentPaymentSheet() async {
+  Future<PaymentSheetPaymentOption?> presentPaymentSheet({
+    PaymentSheetPresentOptions? options,
+  }) async {
     await _awaitForSettings();
-    return await _platform.presentPaymentSheet();
+    return await _platform.presentPaymentSheet(options: options);
+  }
+
+  /// Method used to confirm to the user that the intent is created successfull
+  /// or not successfull when using a defferred payment method.
+  Future<void> intentCreationCallback(
+      IntentCreationCallbackParams params) async {
+    await _awaitForSettings();
+    return await _platform.intentCreationCallback(params);
   }
 
   /// Call this method when the user logs out from your app.
   ///
-  /// This will ensur ethat any persisted authentication state in the
+  /// This will ensure that any persisted authentication state in the
   /// paymentsheet, such as authentication cookies are cleared during logout.
   Future<void> resetPaymentSheetCustomer() async {
     await _awaitForSettings();
@@ -394,6 +501,8 @@ class Stripe {
   }
 
   /// Inititialise google pay
+  @Deprecated(
+      'Use [confirmPlatformPaySetupIntent] or [confirmPlatformPayPaymentIntent] or [createPlatformPayPaymentMethod] instead.')
   Future<void> initGooglePay(GooglePayInitParams params) async {
     return await _platform.initGooglePay(params);
   }
@@ -401,6 +510,8 @@ class Stripe {
   /// Setup google pay.
   ///
   /// Throws a [StripeException] in case it is failing
+  @Deprecated(
+      'Use [confirmPlatformPaySetupIntent] or [confirmPlatformPayPaymentIntent].')
   Future<void> presentGooglePay(PresentGooglePayParams params) async {
     return await _platform.presentGooglePay(params);
   }
@@ -408,6 +519,7 @@ class Stripe {
   /// Create a payment method for google pay.
   ///
   /// Throws a [StripeException] in case it is failing
+  @Deprecated('Use [createPlatformPayPaymentMethod instead.')
   Future<PaymentMethod> createGooglePayPaymentMethod(
       CreateGooglePayPaymentParams params) async {
     return await _platform.createGooglePayPaymentMethod(params);
@@ -416,6 +528,8 @@ class Stripe {
   /// Determines if Google Pay is supported on the device
   ///
   /// On iOS this defaults to false
+  ///
+  @Deprecated('Use [isPlatformPaySupported] instead')
   Future<bool> isGooglePaySupported(IsGooglePaySupportedParams params) async {
     return await _platform.googlePayIsSupported(params);
   }
@@ -561,7 +675,7 @@ class Stripe {
     );
   }
 
-  ValueNotifier<bool>? _isApplePaySupported;
+  ValueNotifier<bool>? _isPlatformPaySupported;
 
   // Internal use only
   static final buildWebCard = _platform.buildCard;

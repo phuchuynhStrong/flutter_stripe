@@ -6,6 +6,7 @@
         ["Overview", "/"],
         ["Accept a Payment", [
           ["Payment Sheet", "/sheet"],
+          ["Payment sheet (deferred payment)", "/sheet_deferred"],
           ["CardField", "/card_field"],
           ["CardFormField", "/card_field"]
           ]      
@@ -17,6 +18,7 @@
         ],
         ["Financial connections", "/financial_connections" ],
         ["Troubleshooting", "/troubleshooting"],
+        ["Migration guide platformpay", "/platform_pay_migration"],
         ["Api Reference", "https://pub.dev/documentation/flutter_stripe/latest/flutter_stripe/flutter_stripe-library.html"]
       ]
 }

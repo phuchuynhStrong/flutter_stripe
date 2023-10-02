@@ -5,11 +5,12 @@ import 'package:stripe_platform_interface/src/models/ach_params.dart';
 import 'package:stripe_platform_interface/src/models/create_token_data.dart';
 import 'package:stripe_platform_interface/src/models/financial_connections.dart';
 import 'package:stripe_platform_interface/src/models/google_pay.dart';
+import 'package:stripe_platform_interface/src/models/intent_creation_callback_params.dart';
+import 'package:stripe_platform_interface/src/models/platform_pay.dart';
 import 'package:stripe_platform_interface/src/models/wallet.dart';
 import 'package:stripe_platform_interface/src/result_parser.dart';
 
 import 'models/app_info.dart';
-import 'models/apple_pay.dart';
 import 'models/card_details.dart';
 import 'models/errors.dart';
 import 'models/payment_intents.dart';
@@ -32,13 +33,12 @@ class MethodChannelStripe extends StripePlatform {
     required bool platformIsAndroid,
   })  : _methodChannel = methodChannel,
         _platformIsAndroid = platformIsAndroid,
-        _platformIsIos = platformIsIos {
-    _init();
-  }
+        _platformIsIos = platformIsIos;
 
   final MethodChannel _methodChannel;
   final bool _platformIsIos;
   final bool _platformIsAndroid;
+  ConfirmHandler? _confirmHandler;
 
   @override
   Future<void> initialise({
@@ -58,9 +58,20 @@ class MethodChannelStripe extends StripePlatform {
       'urlScheme': urlScheme,
       'setReturnUrlSchemeOnAndroid': setReturnUrlSchemeOnAndroid,
     });
-  }
 
-  void _init() {}
+    _methodChannel.setMethodCallHandler((call) async {
+      if (call.method == 'onConfirmHandlerCallback' &&
+          _confirmHandler != null) {
+        final method = ResultParser<PaymentMethod>(
+                parseJson: (json) => PaymentMethod.fromJson(json))
+            .parse(result: call.arguments!, successResultKey: 'paymentMethod');
+        _confirmHandler!(
+          method,
+          call.arguments['shouldSavePaymentMethod'] as bool,
+        );
+      }
+    });
+  }
 
   @override
   Future<PaymentMethod> createPaymentMethod(
@@ -76,13 +87,6 @@ class MethodChannelStripe extends StripePlatform {
     return ResultParser<PaymentMethod>(
             parseJson: (json) => PaymentMethod.fromJson(json))
         .parse(result: result!, successResultKey: 'paymentMethod');
-  }
-
-  @override
-  Future<void> confirmApplePayPayment(String clientSecret) async {
-    await _methodChannel.invokeMethod('confirmApplePayPayment', {
-      'clientSecret': clientSecret,
-    });
   }
 
   @override
@@ -146,13 +150,18 @@ class MethodChannelStripe extends StripePlatform {
   }
 
   @override
-  Future<bool> isApplePaySupported() async {
-    if (!_platformIsIos) {
-      return false;
-    }
-    final isSupported =
-        await _methodChannel.invokeMethod('isApplePaySupported');
-    return isSupported ?? false;
+  Future<SetupIntent> handleNextActionForSetupIntent(
+      String setupIntentClientSecret,
+      {String? returnURL}) async {
+    final result = await _methodChannel
+        .invokeMapMethod<String, dynamic>('handleNextAction', {
+      'setupIntentClientSecret': setupIntentClientSecret,
+      if (_platformIsIos) 'returnURL': returnURL,
+    });
+
+    return ResultParser<SetupIntent>(
+            parseJson: (json) => SetupIntent.fromJson(json))
+        .parse(result: result!, successResultKey: 'setupIntent');
   }
 
   @override
@@ -161,55 +170,6 @@ class MethodChannelStripe extends StripePlatform {
       throw UnsupportedError('Apple Pay is only available for iOS devices');
     }
     await _methodChannel.invokeMethod('openApplePaySetup');
-  }
-
-  @override
-  Future<void> presentApplePay(
-    ApplePayPresentParams params,
-    OnDidSetShippingContact? onDidSetShippingContact,
-    OnDidSetShippingMethod? onDidSetShippingMethod,
-  ) async {
-    if (!_platformIsIos) {
-      throw UnsupportedError('Apple Pay is only available for iOS devices');
-    }
-    final paramsJson = params.toJson();
-
-    _methodChannel.setMethodCallHandler((call) async {
-      if (call.method == 'onDidSetShippingContact') {
-        final contact =
-            ApplePayShippingContact.fromJson(call.arguments['shippingContact']);
-        _methodChannel
-            .invokeMethod('updateApplePaySummaryItems', <String, dynamic>{
-          'summaryItems': paramsJson['cartItems'],
-        });
-        onDidSetShippingContact?.call(contact);
-      } else if (call.method == 'onDidSetShippingMethod') {
-        final method =
-            ApplePayShippingMethod.fromJson(call.arguments['shippingMethod']);
-        _methodChannel
-            .invokeMethod('updateApplePaySummaryItems', <String, dynamic>{
-          'summaryItems': paramsJson['cartItems'],
-        });
-        onDidSetShippingMethod?.call(method);
-      }
-    });
-
-    await _methodChannel.invokeMethod('presentApplePay', paramsJson);
-  }
-
-  @override
-  Future<void> updateApplePaySummaryItems({
-    required List<ApplePayCartSummaryItem> summaryItems,
-    List<ApplePayErrorAddressField>? errorAddressFields,
-  }) async {
-    if (!_platformIsIos) {
-      throw UnsupportedError('Apple Pay is only available for iOS devices');
-    }
-    await _methodChannel
-        .invokeMapMethod<String, dynamic>('updateApplePaySummaryItems', {
-      'summaryItems': summaryItems.map((e) => e.toJson()).toList(),
-      'errorAddressFields': errorAddressFields?.map((e) => e.toJson()).toList(),
-    });
   }
 
   @override
@@ -225,53 +185,64 @@ class MethodChannelStripe extends StripePlatform {
   }
 
   @override
-  Future<void> initPaymentSheet(SetupPaymentSheetParameters params) async {
-    await _methodChannel.invokeMethod(
-      'initPaymentSheet',
-      {'params': params.toJson()},
-    );
+  Future<SetupIntent> retrieveSetupIntent(String clientSecret) async {
+    final result = await _methodChannel
+        .invokeMapMethod<String, dynamic>('retrieveSetupIntent', {
+      'clientSecret': clientSecret,
+    });
+
+    return ResultParser<SetupIntent>(
+            parseJson: (json) => SetupIntent.fromJson(json))
+        .parse(result: result!, successResultKey: 'setupIntent');
   }
 
   @override
-  Future<void> presentPaymentSheet() async {
-    final result = await _methodChannel.invokeMethod<dynamic>(
-      'presentPaymentSheet',
-      {'params': {}},
+  Future<PaymentSheetPaymentOption?> initPaymentSheet(
+      SetupPaymentSheetParameters params) async {
+    final result = await _methodChannel.invokeMethod(
+      'initPaymentSheet',
+      {'params': params.toJson()},
     );
-
-    // iOS returns empty list on success
+    if (params.intentConfiguration?.confirmHandler != null) {
+      _addListenerForDeffered();
+      _confirmHandler = params.intentConfiguration?.confirmHandler;
+    }
     if (result is List) {
-      return;
+      return null;
     } else {
       return _parsePaymentSheetResult(result);
     }
+  }
+
+  @override
+  Future<PaymentSheetPaymentOption?> presentPaymentSheet({
+    PaymentSheetPresentOptions? options,
+  }) async {
+    final result = await _methodChannel.invokeMethod<dynamic>(
+      'presentPaymentSheet',
+      {'params': {}, 'options': options?.toJson() ?? {}},
+    );
+
+    return _parsePaymentSheetResult(result);
   }
 
   @override
   Future<void> resetPaymentSheetCustomer() async {
-    final result = await _methodChannel.invokeMethod<dynamic>(
+    await _methodChannel.invokeMethod<dynamic>(
       'resetPaymentSheetCustomer',
       {'params': {}},
     );
-
-    // iOS returns empty list on success
-    if (result is List) {
-      return;
-    } else {
-      return _parsePaymentSheetResult(result);
-    }
   }
 
   @override
   Future<void> confirmPaymentSheetPayment() async {
     final result = await _methodChannel
         .invokeMethod<dynamic>('confirmPaymentSheetPayment');
-
     // iOS returns empty list on success
     if (result is List) {
       return;
     } else {
-      return _parsePaymentSheetResult(result);
+      _parsePaymentSheetResult(result);
     }
   }
 
@@ -299,10 +270,20 @@ class MethodChannelStripe extends StripePlatform {
     });
   }
 
-  void _parsePaymentSheetResult(Map<String, dynamic>? result) {
+  Future<void> _addListenerForDeffered() async {
+    await _methodChannel.invokeMethod(
+      'addListener',
+      {'eventName': 'onConfirmHandlerCallback'},
+    );
+  }
+
+  PaymentSheetPaymentOption? _parsePaymentSheetResult(
+      Map<String, dynamic>? result) {
     if (result != null) {
-      if (result.isEmpty || result['paymentOption'] != null) {
-        return;
+      if (result.isEmpty) {
+        return null;
+      } else if (result['paymentOption'] != null) {
+        return PaymentSheetPaymentOption.fromJson(result['paymentOption']);
       } else {
         if (result['error'] != null) {
           //workaround for tojson in sumtypes
@@ -362,6 +343,56 @@ class MethodChannelStripe extends StripePlatform {
         .invokeMethod('isGooglePaySupported', {'params': params.toJson()});
 
     return isSupported ?? false;
+  }
+
+  @override
+  Future<bool> isPlatformPaySupported({
+    IsGooglePaySupportedParams? params,
+  }) async {
+    bool? isSupported;
+    if (params == null) {
+      isSupported =
+          await _methodChannel.invokeMethod('isPlatformPaySupported', {
+        'params': {},
+      });
+    } else {
+      isSupported = await _methodChannel
+          .invokeMethod('isPlatformPaySupported', {'params': params.toJson()});
+    }
+
+    return isSupported ?? false;
+  }
+
+  @override
+  Future<SetupIntent> platformPayConfirmSetupIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams params,
+  }) async {
+    final result = await _methodChannel
+        .invokeMapMethod<String, dynamic>('confirmPlatformPay', {
+      'clientSecret': clientSecret,
+      'params': params.toJson(),
+      'isPaymentIntent': false,
+    });
+    return ResultParser<SetupIntent>(
+      parseJson: (json) => SetupIntent.fromJson(json),
+    ).parse(result: result!, successResultKey: 'setupIntent');
+  }
+
+  @override
+  Future<PaymentIntent> platformPayConfirmPaymentIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams params,
+  }) async {
+    final result = await _methodChannel
+        .invokeMapMethod<String, dynamic>('confirmPlatformPay', {
+      'clientSecret': clientSecret,
+      'params': params.toJson(),
+      'isPaymentIntent': true,
+    });
+    return ResultParser<PaymentIntent>(
+      parseJson: (json) => PaymentIntent.fromJson(json),
+    ).parse(result: result!, successResultKey: 'paymentIntent');
   }
 
   @override
@@ -465,6 +496,66 @@ class MethodChannelStripe extends StripePlatform {
       'url': url,
     });
     return result ?? false;
+  }
+
+  @override
+  Future<PaymentMethod> platformPayCreatePaymentMethod({
+    required PlatformPayPaymentMethodParams params,
+    bool usesDeprecatedTokenFlow = false,
+  }) async {
+    var data = <String, dynamic>{};
+    if (params is PlatformPayPaymentMethodParamsApplePay) {
+      data = {
+        'applePay': {
+          ...params.applePayParams.toJson(),
+          'usesDeprecatedTokenFlow': usesDeprecatedTokenFlow,
+        },
+      };
+    } else if (params is PlatformPayPaymentMethodParamsGooglePay) {
+      data = {
+        'googlePay': {
+          ...params.googlePayParams.toJson(),
+          ...params.googlePayPaymentMethodParams.toJson(),
+          'usesDeprecatedTokenFlow': usesDeprecatedTokenFlow,
+        },
+      };
+    }
+
+    final result = await _methodChannel
+        .invokeMapMethod<String, dynamic>('createPlatformPayPaymentMethod', {
+      'params': data,
+      'usesDeprecatedTokenFlow': usesDeprecatedTokenFlow,
+    });
+
+    return ResultParser<PaymentMethod>(
+            parseJson: (json) => PaymentMethod.fromJson(json))
+        .parse(result: result!, successResultKey: 'paymentMethod');
+  }
+
+  @override
+  Future<void> updatePlatformSheet(
+      {required PlatformPaySheetUpdateParams params}) async {
+    await _methodChannel
+        .invokeMethod('updatePlatformPaySheet', {'params': params.toJson()});
+  }
+
+  @override
+  Future<void> configurePlatformOrderTracking({
+    required PlatformPayOrderDetails orderDetails,
+  }) async {
+    await _methodChannel.invokeMethod(
+      'configureOrderTracking',
+      orderDetails.toJson(),
+    );
+  }
+
+  @override
+  Future<void> intentCreationCallback(
+      IntentCreationCallbackParams params) async {
+    await _methodChannel.invokeMethod(
+      'intentCreationCallback',
+      {'params': params.toJson()},
+    );
   }
 }
 

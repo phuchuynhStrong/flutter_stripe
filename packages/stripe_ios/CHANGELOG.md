@@ -1,3 +1,115 @@
+## 9.4.0
+
+**Breaking changes**
+- Removed deprecated methods `isApplePaySupported`, `checkApplePaySupport`, `presentApplePay`, `confirmApplePayPayment`.
+
+**Features**
+ - Added support for deffered payments in the payment sheet for more info see [docs](https://docs.page/flutter-stripe/flutter_stripe/sheet_deferred).
+ - Sync with Stripe [0.29.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.29.0) and [0.30.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.30.0).
+
+ **Fixes**
+ - Fixed #1376 focus issue on iOS.
+
+## 9.3.1
+- Fix #1325 Paymentsheet conversion issue
+
+## 9.3.0
+**Features**
+- Add method for retrieve setupintent.
+
+**Fixes**
+- Calling confirm payment without params won't crash #1246 
+- Fix inproper calling of cashapp payment method. #1313
+- Sync with Stripe [0.28.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.28.0).
+
+## 9.2.1
+**Fixes**
+- Move amount value to GooglePayPaymentMethodParams #1255 
+- iOS: Apple Pay updatePlatformSheet now pass the errors #1230
+- iOS: Fixes styling parameter for ApplePayButton #1231
+- Android: Fixes bug that to display image in card form #1254
+- Sync with Stripe [0.27.1](https://github.com/stripe/stripe-react-native/releases/tag/v0.27.1).
+
+## 9.2.0
+**Features**
+- Add `BillingDetailsCollectionConfiguration` to payment sheet for collecting addresses.
+- Sync with Stripe [0.27](https://github.com/stripe/stripe-react-native/releases/tag/v0.27.0).
+
+**Fixes**
+- #1219 use correct value for enum PaymentConfirmationRedirect.ifRequired.
+
+## 9.1.0
+This release brings a lot of improvments to the web plugin, like later payments using SetupIntents or using tokens. 
+It also fixes the Apple Pay plugin that comes with new native features like order tracking and discount codes
+
+**Deprecated fields**
+- The field `createdDateTime` in `TokenData` has changed to 
+`created`. It will be removed in later versions
+
+**Features**
+- Web: Adds support for token endpoints [ref](https://github.com/flutter-stripe/flutter_stripe/pull/1079)
+- Web: Adds support SetupIntents  [ref](https://github.com/flutter-stripe/flutter_stripe/pull/1079)
+- Web: Adds possibility to change `stripeAccountId` for stripe web` [ref](https://github.com/flutter-stripe/flutter_stripe/pull/1201)
+- Web: Fix enum `PaymentConfirmationRedirect` parsing [ref](https://github.com/flutter-stripe/flutter_stripe/pull/1201)
+- iOS: Fixes Apple Pay flow [ref](https://github.com/flutter-stripe/flutter_stripe/pull/1202)
+- Sync with Stripe [0.26](https://github.com/stripe/stripe-react-native/releases/tag/v0.26.0)
+
+## 9.0.0+1
+- Fix Android compilation issue (thanks to @asaarnak)
+
+## 9.0.0
+This release is based on version [0.25.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.25.0) of Stripe React Native:
+
+**Breaking Changes**
+- Renamed the `paymentSummaryItems` field in `initPaymentSheet()`'s `applePay` params to `cartItems`.
+
+**Features**
+- Added the `supportsTapToPay` option to `canAddCardToWallet`. [reference](https://github.com/stripe/stripe-react-native/pull/1308)
+- Added the `setOrderTracking` property to the `PlatformPayButton` component and the `initPaymentSheet` method. Use this callback for setting the order details to give users the ability to track and manage their purchases in Wallet. To learn more about order tracking, see [Apple’s Wallet Orders documentation](https://developer.apple.com/documentation/walletorders). [reference](https://github.com/stripe/stripe-react-native/pull/1248)
+- Added the `buttonType` field to `initPaymentSheet()`'s `applePay` params. Use this to set the text displayed by the call to action button in the Apple Pay sheet.[reference](https://github.com/stripe/stripe-react-native/pull/1248)
+- Added the `request` field to `initPaymentSheet()`'s, `confirmPlatformPayPayment()`'s, and `confirmPlatformPaySetupIntent`'s  `applePay` params. Use this to support different types of payment requests, like `RecurringPaymentRequest`, `AutomaticReloadPaymentRequest`, and `MultiMerchantRequest`.[reference](https://github.com/stripe/stripe-react-native/pull/1248)
+- Added an `options` argument to `presentPaymentSheet` which includes a `timeout` property. [reference](https://github.com/stripe/stripe-react-native/pull/1287)
+- Added the `hasPairedAppleWatch` option to `canAddCardToWallet`. [reference](https://github.com/stripe/stripe-react-native/pull/1219)
+- Added new functions and a new component to streamline integrating with Apple and Google Pay and add more feature support. See the [Migrating to Platform Pay guide](https://github.com/stripe/stripe-react-native/blob/master/docs/Platform-Pay-Migration.md) for more details. The old Apple and Google Pay APIs are marked as `deprecated` and will be removed in a future release, but are still supported in this version.
+
+**Fixes**
+- Fixed an issue on iOS where `canAddCardToWallet` would always return a `details.status` of `UNSUPPORTED_DEVICE` on iPads. [reference](https://github.com/stripe/stripe-react-native/pull/1305)
+- Fixed an issue on iOS where `canAddCardToWallet` would always return a `{canAddCard: false}` if the card in question had been provsioned on the current device, but **had not yet been provisioned** on a paired Watch. [ref](https://github.com/stripe/stripe-react-native/pull/1305)
+- Fixed an issue on iOS where the **deprecated** `onDidSetShippingMethod` & `onDidSetShippingContact` events wouldn't be triggered if you were using the `useApplePay` hook _without_ using the `ApplePayButton` component. [ref](https://github.com/stripe/stripe-react-native/pull/1298)
+- Fixed an issue on Android where `canAddCardToWallet` could result in a null pointer exception on devices without NFC compatibility. [ref](https://github.com/stripe/stripe-react-native/pull/1308)
+- Fixes a build failure on Android when using `stripe-android` v20.19.2. [ref](https://github.com/stripe/stripe-react-native/pull/1289)
+- Fixed a bug on Android where `canAddCardToWallet` wouldn't correctly return the `details.token` object. [ref](https://github.com/stripe/stripe-react-native/pull/1282)
+- Fixed an issue with `confirmPlatformPaySetupIntent` on iOS. [ref](https://github.com/stripe/stripe-react-native/pull/1266)
+- Fixed types so that Klarna accepts the `shippingDetails` property. [ref](https://github.com/stripe/stripe-react-native/pull/1272)
+- Both [`PaymentIntent.Result`](https://stripe.dev/stripe-react-native/api-reference/interfaces/PaymentIntent.Result.html) and [`SetupIntent.Result`](https://stripe.dev/stripe-react-native/api-reference/interfaces/SetupIntent.Result.html) types now include a `paymentMethod` field. This replaces the `paymentMethodId` field, which will be removed in a later release. [ref](https://github.com/stripe/stripe-react-native/pull/1272)
+- Fixed an issue with `createPlatformPayPaymentMethod` on iOS where a "Canceled" error could be returned in production. [ref](https://github.com/stripe/stripe-react-native/issues/1236)
+- Fixed an issue where the `PlatformPayButton` with `type={PlatformPay.ButtonType.GooglePayMark}` would be unclickable. [ref](https://github.com/stripe/stripe-react-native/issues/1236)
+- Fixed an issue on Android where `CardField` would render without the necessary padding. [48debb2](https://github.com/stripe/stripe-react-native/commit/48debb27de4b02d8309b4e42737be066cdf33835)
+- Fixed an issue on iOS where providing a `null` value to certain method parameters would result in a crash. [ref](https://github.com/stripe/stripe-react-native/pull/1252)
+- Fixed the `ShippingMethod` type to contain the `isPending` field instead of a `type` field (which previously was never correct). This reflects the inputs accepted. [ref](https://github.com/stripe/stripe-react-native/pull/1227)
+- Fixed the `ShippingMethod` type to contain the `startDate` and `endDate` keys, if applicable. [ref](https://github.com/stripe/stripe-react-native/pull/1227)
+- Fixed instances of the "duplicate registered views" error. [ref](https://github.com/stripe/stripe-react-native/pull/1233)
+- Fixed extra margin that was being added to `<CardForm />` on Android. [ref](https://github.com/stripe/stripe-react-native/pull/1234)
+- Fixed an issue where builds would error with the message `'const' enums are not supported.` [see commit](https://github.com/stripe/stripe-react-native/commit/f882bfa588aa6d23a980b4b43d2cca660ca1dd2a)
+- Fixed an issue where the `canAddCardToWallet` method would sometimes wrongly return `false` with a `details.status` of `MISSING_CONFIGURATION` in production builds. [ref](https://github.com/stripe/stripe-react-native/pull/1215)
+- Fixed an issue on Android where, for certain countries, the postal code would not be enabled but would still be required. [ref](https://github.com/stripe/stripe-react-native/pull/1213)
+- Fixed an issue on iOS where `canAddCardToWallet` would return `false` if the card had already been provisioned on a paired device like an Apple Watch, but had not yet been provisioned on the current device, and would also return `false` if the card had been provisioned on the current device, but not on a paired Apple Watch. [ref](https://github.com/stripe/stripe-react-native/pull/1219)
+
+**Note**
+This version pulls in a new version of `stripe-android` that now requires v1.8.0 of the Kotlin Gradle plugin. [Refer to this issue for a limited workaround](https://github.com/stripe/stripe-react-native/issues/1294#issuecomment-1426150258).
+
+
+## 8.0.0+1
+**Breaking Changes**
+- This library now supports the new Stripe platform pay methods. See: [migration guide](https://docs.page/flutter-stripe/flutter_stripe/platform_pay_migration) for more details.
+
+**Fixes**
+-  Fix for #955 and #1081, enable automatic webview closing.
+- Fix #1083 use correct method channel for dangerouslyupdateCard.
+- Several fixes by the Stripe sdk [v.0.21.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.21.0) , [v.0.22.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.22.0) and [v.0.23.0](https://github.com/stripe/stripe-react-native/releases/tag/v0.23.0).
+ - **FIX**: #1083 use correct method channel for dangerouslyupdateCard (#1094).
+ - **FEAT**: scroll to keep card field visible (#1061).
+
 ## 7.0.0
 **Breaking Changes**
 - This library now supports iOS 13 and up, due to stripe-ios increasing the deployment target

@@ -7,6 +7,7 @@ import android.text.InputFilter
 import android.view.View
 import android.view.View.OnFocusChangeListener
 import android.widget.FrameLayout
+import androidx.core.view.setMargins
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.uimanager.PixelUtil
 import com.facebook.react.uimanager.ThemedReactContext
@@ -19,7 +20,7 @@ import com.google.android.material.shape.ShapeAppearanceModel
 import com.reactnativestripesdk.utils.*
 import com.reactnativestripesdk.utils.mapCardBrand
 import com.stripe.android.core.model.CountryCode
-import com.stripe.android.databinding.CardMultilineWidgetBinding
+import com.stripe.android.databinding.StripeCardMultilineWidgetBinding
 import com.stripe.android.databinding.StripeCardFormViewBinding
 import com.stripe.android.model.Address
 import com.stripe.android.model.PaymentMethodCreateParams
@@ -36,12 +37,12 @@ class CardFormView(context: ThemedReactContext) : FrameLayout(context) {
   var cardParams: PaymentMethodCreateParams.Card? = null
   var cardAddress: Address? = null
   private val cardFormViewBinding = StripeCardFormViewBinding.bind(cardForm)
-  private val multilineWidgetBinding = CardMultilineWidgetBinding.bind(cardFormViewBinding.cardMultilineWidget)
+  private val multilineWidgetBinding = StripeCardMultilineWidgetBinding.bind(cardFormViewBinding.cardMultilineWidget)
 
   init {
     cardFormViewBinding.cardMultilineWidgetContainer.isFocusable = true
     cardFormViewBinding.cardMultilineWidgetContainer.isFocusableInTouchMode = true
-
+    (cardFormViewBinding.cardMultilineWidgetContainer.layoutParams as MarginLayoutParams).setMargins(0)
     addView(cardForm)
     setListeners()
 
@@ -57,6 +58,10 @@ class CardFormView(context: ThemedReactContext) : FrameLayout(context) {
 
   fun setDefaultValues(defaults: ReadableMap) {
     setCountry(defaults.getString("countryCode"))
+  }
+
+  fun setDisabled(isDisabled: Boolean) {
+    cardForm.isEnabled = !isDisabled
   }
 
   private fun setCountry(countryString: String?) {
@@ -192,7 +197,6 @@ class CardFormView(context: ThemedReactContext) : FrameLayout(context) {
       }
     }
 
-    cardFormViewBinding.cardMultilineWidgetContainer.setPadding(40, 0, 40, 0)
     cardFormViewBinding.cardMultilineWidgetContainer.background = MaterialShapeDrawable(
       ShapeAppearanceModel()
         .toBuilder()

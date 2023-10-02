@@ -158,6 +158,9 @@ class Card with _$Card {
 
     /// The available networks the card can run.
     List<String>? availableNetworks,
+
+    /// Three 3ds usage data.
+    ThreeDSecureUsage? threeDSecureUsage,
   }) = _Card;
 
   factory Card.fromJson(Map<String, dynamic> json) => _$CardFromJson(json);
@@ -293,6 +296,7 @@ enum UsBankAccountType {
 enum PaymentMethodType {
   AfterpayClearpay,
   Card,
+  CashAppPay,
   Alipay,
   Grabpay,
   Ideal,
@@ -342,7 +346,6 @@ class PaymentMethodParams with _$PaymentMethodParams {
   const factory PaymentMethodParams.cardFromMethodId({
     /// Payment method data object for card from payment method.
     required PaymentMethodDataCardFromMethod paymentMethodData,
-
   }) = _PaymentMethodParamsCardWithMethodId;
 
   @JsonSerializable(explicitToJson: true)
@@ -353,6 +356,15 @@ class PaymentMethodParams with _$PaymentMethodParams {
     /// Paymentmethod data for this paymentmethod.
     required PaymentMethodData paymentMethodData,
   }) = _PaymentMethodParamsAlipay;
+
+  @JsonSerializable(explicitToJson: true)
+  @FreezedUnionValue('CashApp')
+
+  /// Config parameters for cashapp payment method.
+  const factory PaymentMethodParams.cashAppPay({
+    /// Paymentmethod data for this paymentmethod.
+    required PaymentMethodData paymentMethodData,
+  }) = _PaymentMethodParamsCashAppPay;
 
   @JsonSerializable(explicitToJson: true)
   @FreezedUnionValue('Ideal')
@@ -482,9 +494,6 @@ class PaymentMethodParams with _$PaymentMethodParams {
   /// Paypal is in private beta make sure to request access at Stripe to try it out.
   const factory PaymentMethodParams.payPal({
     /// Paymentmethod data for this paymentmethod.
-    ///
-    /// Make sure to add an email and country (part of the address) in the
-    /// billingdetails which is required for using Klarna.
     required PaymentMethodData paymentMethodData,
   }) = _PaymentMethodParamsPayPal;
 
@@ -517,6 +526,9 @@ class PaymentMethodData with _$PaymentMethodData {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodData;
 
   factory PaymentMethodData.fromJson(Map<String, dynamic> json) =>
@@ -537,6 +549,9 @@ class PaymentMethodDataCardFromToken with _$PaymentMethodDataCardFromToken {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataCardFromToken;
 
   factory PaymentMethodDataCardFromToken.fromJson(Map<String, dynamic> json) =>
@@ -560,6 +575,9 @@ class PaymentMethodDataCardFromMethod with _$PaymentMethodDataCardFromMethod {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataCardFromMethod;
 
   factory PaymentMethodDataCardFromMethod.fromJson(Map<String, dynamic> json) =>
@@ -580,6 +598,9 @@ class PaymentMethodDataIdeal with _$PaymentMethodDataIdeal {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataIdeal;
 
   factory PaymentMethodDataIdeal.fromJson(Map<String, dynamic> json) =>
@@ -600,6 +621,9 @@ class PaymentMethodDataAubecs with _$PaymentMethodDataAubecs {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataAubecs;
 
   factory PaymentMethodDataAubecs.fromJson(Map<String, dynamic> json) =>
@@ -620,6 +644,9 @@ class PaymentMethodDataFpx with _$PaymentMethodDataFpx {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataFpx;
 
   factory PaymentMethodDataFpx.fromJson(Map<String, dynamic> json) =>
@@ -640,6 +667,9 @@ class PaymentMethodDataSofort with _$PaymentMethodDataSofort {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataSofort;
 
   factory PaymentMethodDataSofort.fromJson(Map<String, dynamic> json) =>
@@ -660,6 +690,9 @@ class PaymentMethodDataSepa with _$PaymentMethodDataSepa {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataSepa;
 
   factory PaymentMethodDataSepa.fromJson(Map<String, dynamic> json) =>
@@ -677,6 +710,9 @@ class PaymentMethodDataAfterPay with _$PaymentMethodDataAfterPay {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataAfterPay;
 
   factory PaymentMethodDataAfterPay.fromJson(Map<String, dynamic> json) =>
@@ -706,6 +742,9 @@ class PaymentMethodDataUsBank with _$PaymentMethodDataUsBank {
 
     /// Shipping details
     ShippingDetails? shippingDetails,
+
+    /// Mandata data for this paymentmethod.
+    MandateData? mandateData,
   }) = _PaymentMethodDataUsBank;
 
   factory PaymentMethodDataUsBank.fromJson(Map<String, dynamic> json) =>
@@ -724,4 +763,63 @@ class PaymentMethodOptions with _$PaymentMethodOptions {
 
   factory PaymentMethodOptions.fromJson(Map<String, dynamic> json) =>
       _$PaymentMethodOptionsFromJson(json);
+}
+
+@freezed
+
+///A Mandate is a record of the permission a customer has given you to debit their payment method.
+class MandateData with _$MandateData {
+  @JsonSerializable(explicitToJson: true)
+  const factory MandateData({
+    /// The type of mandate to create.
+    MandateDataCustomerAcceptance? customerAcceptance,
+  }) = _MandateData;
+
+  factory MandateData.fromJson(Map<String, dynamic> json) =>
+      _$MandateDataFromJson(json);
+}
+
+@freezed
+
+///Information about the online mandate
+class MandateDataCustomerAcceptance with _$MandateDataCustomerAcceptance {
+  @JsonSerializable(explicitToJson: true)
+  const factory MandateDataCustomerAcceptance({
+    /// Online data regarding the mandate.
+    MandateDataOnlineData? ipAddress,
+  }) = _MandateDataCustomerAcceptance;
+
+  factory MandateDataCustomerAcceptance.fromJson(Map<String, dynamic> json) =>
+      _$MandateDataCustomerAcceptanceFromJson(json);
+}
+
+@freezed
+
+///Information about the online mandate
+class MandateDataOnlineData with _$MandateDataOnlineData {
+  @JsonSerializable(explicitToJson: true)
+  const factory MandateDataOnlineData({
+    /// The ip address of the user.
+    String? ipAddress,
+
+    /// The user agent of the user.
+    String? userAgent,
+  }) = _MandateDataOnlineData;
+
+  factory MandateDataOnlineData.fromJson(Map<String, dynamic> json) =>
+      _$MandateDataOnlineDataFromJson(json);
+}
+
+@freezed
+class ThreeDSecureUsage with _$ThreeDSecureUsage {
+  /// Data associated with the 3ds usage.
+
+  @JsonSerializable(explicitToJson: true)
+  const factory ThreeDSecureUsage({
+    /// Whether 3ds is supported or not.
+    bool? isSupported,
+  }) = _ThreeDSecureUsage;
+
+  factory ThreeDSecureUsage.fromJson(Map<String, dynamic> json) =>
+      _$ThreeDSecureUsageFromJson(json);
 }

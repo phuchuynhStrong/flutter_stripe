@@ -1,31 +1,31 @@
 package com.reactnativestripesdk
 
+import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.FrameLayout
-import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.core.graphics.drawable.DrawableCompat
 import androidx.fragment.app.Fragment
-import com.facebook.react.bridge.Promise
-import com.facebook.react.bridge.ReactApplicationContext
-import com.facebook.react.bridge.WritableMap
-import com.facebook.react.bridge.WritableNativeMap
+import com.facebook.react.bridge.*
+import com.reactnativestripesdk.addresssheet.AddressSheetView
 import com.reactnativestripesdk.utils.*
 import com.reactnativestripesdk.utils.createError
 import com.reactnativestripesdk.utils.createResult
-import com.stripe.android.paymentsheet.PaymentOptionCallback
-import com.stripe.android.paymentsheet.PaymentSheet
-import com.stripe.android.paymentsheet.PaymentSheetResult
-import com.stripe.android.paymentsheet.PaymentSheetResultCallback
+import com.stripe.android.paymentsheet.*
+import kotlinx.coroutines.CompletableDeferred
 import java.io.ByteArrayOutputStream
+import kotlin.Exception
 
 class PaymentSheetFragment(
   private val context: ReactApplicationContext,
@@ -35,9 +35,12 @@ class PaymentSheetFragment(
   private var flowController: PaymentSheet.FlowController? = null
   private var paymentIntentClientSecret: String? = null
   private var setupIntentClientSecret: String? = null
+  private var intentConfiguration: PaymentSheet.IntentConfiguration? = null
   private lateinit var paymentSheetConfiguration: PaymentSheet.Configuration
   private var confirmPromise: Promise? = null
   private var presentPromise: Promise? = null
+  private var paymentSheetTimedOut = false
+  internal val paymentSheetIntentCreationCallback = CompletableDeferred<ReadableMap>()
 
   override fun onCreateView(
     inflater: LayoutInflater,
@@ -62,13 +65,24 @@ class PaymentSheetFragment(
     val googlePayConfig = buildGooglePayConfig(arguments?.getBundle("googlePay"))
     val allowsDelayedPaymentMethods = arguments?.getBoolean("allowsDelayedPaymentMethods")
     val billingDetailsBundle = arguments?.getBundle("defaultBillingDetails")
+    val billingConfigParams = arguments?.getBundle("billingDetailsCollectionConfiguration")
     paymentIntentClientSecret = arguments?.getString("paymentIntentClientSecret").orEmpty()
     setupIntentClientSecret = arguments?.getString("setupIntentClientSecret").orEmpty()
+    intentConfiguration = try {
+      buildIntentConfiguration(arguments?.getBundle("intentConfiguration"))
+    } catch (error: PaymentSheetException) {
+      initPromise.resolve(createError(ErrorType.Failed.toString(), error))
+      return
+    }
     val appearance = try {
-      buildPaymentSheetAppearance(arguments?.getBundle("appearance"))
+      buildPaymentSheetAppearance(arguments?.getBundle("appearance"), context)
     } catch (error: PaymentSheetAppearanceException) {
       initPromise.resolve(createError(ErrorType.Failed.toString(), error))
       return
+    }
+
+    val shippingDetails = arguments?.getBundle("defaultShippingDetails")?.let {
+      AddressSheetView.buildAddressDetails(it)
     }
 
     val paymentOptionCallback = PaymentOptionCallback { paymentOption ->
@@ -80,26 +94,75 @@ class PaymentSheetFragment(
         option.putString("image", imageString)
         createResult("paymentOption", option)
       } ?: run {
-        createError(PaymentSheetErrorType.Canceled.toString(), "The payment option selection flow has been canceled")
+        if (paymentSheetTimedOut) {
+          paymentSheetTimedOut = false
+          createError(PaymentSheetErrorType.Timeout.toString(), "The payment has timed out")
+        } else {
+          createError(PaymentSheetErrorType.Canceled.toString(), "The payment option selection flow has been canceled")
+        }
       }
       presentPromise?.resolve(result)
     }
 
     val paymentResultCallback = PaymentSheetResultCallback { paymentResult ->
-      when (paymentResult) {
-        is PaymentSheetResult.Canceled -> {
-          resolvePaymentResult(createError(PaymentSheetErrorType.Canceled.toString(), "The payment flow has been canceled"))
-        }
-        is PaymentSheetResult.Failed -> {
-          resolvePaymentResult(createError(PaymentSheetErrorType.Failed.toString(), paymentResult.error))
-        }
-        is PaymentSheetResult.Completed -> {
-          resolvePaymentResult(WritableNativeMap())
-          // Remove the fragment now, we can be sure it won't be needed again if an intent is successful
-          removeFragment(context)
+      if (paymentSheetTimedOut) {
+        paymentSheetTimedOut = false
+        resolvePaymentResult(createError(PaymentSheetErrorType.Timeout.toString(), "The payment has timed out"))
+      } else {
+        when (paymentResult) {
+          is PaymentSheetResult.Canceled -> {
+            resolvePaymentResult(createError(PaymentSheetErrorType.Canceled.toString(), "The payment flow has been canceled"))
+          }
+          is PaymentSheetResult.Failed -> {
+            resolvePaymentResult(createError(PaymentSheetErrorType.Failed.toString(), paymentResult.error))
+          }
+          is PaymentSheetResult.Completed -> {
+            resolvePaymentResult(WritableNativeMap())
+            // Remove the fragment now, we can be sure it won't be needed again if an intent is successful
+            removeFragment(context)
+            paymentSheet = null
+            flowController = null
+          }
         }
       }
     }
+
+    val createIntentCallback = CreateIntentCallback {  paymentMethod, shouldSavePaymentMethod ->
+      val stripeSdkModule: StripeSdkModule? = context.getNativeModule(StripeSdkModule::class.java)
+      if (stripeSdkModule == null || stripeSdkModule.eventListenerCount == 0) {
+        return@CreateIntentCallback CreateIntentResult.Failure(
+          cause = Exception("Tried to call confirmHandler, but no callback was found. Please file an issue: https://github.com/stripe/stripe-react-native/issues"),
+          displayMessage = "An unexpected error occurred"
+          )
+      }
+      val params = Arguments.createMap().apply {
+        putMap("paymentMethod", mapFromPaymentMethod(paymentMethod))
+        putBoolean("shouldSavePaymentMethod", shouldSavePaymentMethod)
+      }
+
+      stripeSdkModule.sendEvent(context, "onConfirmHandlerCallback", params)
+
+      val resultFromJavascript = paymentSheetIntentCreationCallback.await()
+
+      return@CreateIntentCallback resultFromJavascript.getString("clientSecret")?.let {
+        CreateIntentResult.Success(clientSecret = it)
+      } ?: run {
+        val errorMap = resultFromJavascript.getMap("error")
+        CreateIntentResult.Failure(
+          cause = Exception(errorMap?.getString("message")),
+          displayMessage = errorMap?.getString("localizedMessage")
+        )
+      }
+    }
+
+    val billingDetailsConfig = PaymentSheet.BillingDetailsCollectionConfiguration(
+      name = mapToCollectionMode(billingConfigParams?.getString("name")),
+      phone = mapToCollectionMode(billingConfigParams?.getString("phone")),
+      email = mapToCollectionMode(billingConfigParams?.getString("email")),
+      address = mapToAddressCollectionMode(billingConfigParams?.getString("address")),
+      attachDefaultsToPaymentMethod = billingConfigParams?.getBoolean("attachDefaultsToPaymentMethod")
+        ?: false
+    )
 
     var defaultBillingDetails: PaymentSheet.BillingDetails? = null
     if (billingDetailsBundle != null) {
@@ -128,14 +191,40 @@ class PaymentSheetFragment(
       ) else null,
       googlePay = googlePayConfig,
       appearance = appearance,
-      primaryButtonLabel = primaryButtonLabel
+      shippingDetails = shippingDetails,
+      primaryButtonLabel = primaryButtonLabel,
+      billingDetailsCollectionConfiguration = billingDetailsConfig
     )
 
     if (arguments?.getBoolean("customFlow") == true) {
-      flowController = PaymentSheet.FlowController.create(this, paymentOptionCallback, paymentResultCallback)
+      flowController = if (intentConfiguration != null) {
+        PaymentSheet.FlowController.create(
+          this,
+          paymentOptionCallback = paymentOptionCallback,
+          createIntentCallback = createIntentCallback,
+          paymentResultCallback = paymentResultCallback
+        )
+      } else {
+        PaymentSheet.FlowController.create(
+          this,
+          paymentOptionCallback = paymentOptionCallback,
+          paymentResultCallback = paymentResultCallback
+        )
+      }
       configureFlowController()
     } else {
-      paymentSheet = PaymentSheet(this, paymentResultCallback)
+      paymentSheet = if (intentConfiguration != null) {
+        PaymentSheet(
+          this,
+          createIntentCallback = createIntentCallback,
+          paymentResultCallback = paymentResultCallback
+        )
+      } else {
+        PaymentSheet(
+          this,
+          callback = paymentResultCallback
+        )
+      }
       initPromise.resolve(WritableNativeMap())
     }
   }
@@ -147,10 +236,53 @@ class PaymentSheetFragment(
         paymentSheet?.presentWithPaymentIntent(paymentIntentClientSecret!!, paymentSheetConfiguration)
       } else if (!setupIntentClientSecret.isNullOrEmpty()) {
         paymentSheet?.presentWithSetupIntent(setupIntentClientSecret!!, paymentSheetConfiguration)
+      } else if (intentConfiguration != null) {
+        paymentSheet?.presentWithIntentConfiguration(
+          intentConfiguration = intentConfiguration!!,
+          configuration = paymentSheetConfiguration
+        )
       }
     } else if(flowController != null) {
       flowController?.presentPaymentOptions()
+    } else {
+      promise.resolve(createMissingInitError())
     }
+  }
+
+  fun presentWithTimeout(timeout: Long, promise: Promise) {
+    var paymentSheetActivity: Activity? = null
+
+    val activityLifecycleCallbacks = object : Application.ActivityLifecycleCallbacks {
+      override fun onActivityCreated(activity: Activity, savedInstanceState: Bundle?) {
+        paymentSheetActivity = activity
+      }
+
+      override fun onActivityStarted(activity: Activity) {}
+
+      override fun onActivityResumed(activity: Activity) {}
+
+      override fun onActivityPaused(activity: Activity) {}
+
+      override fun onActivityStopped(activity: Activity) {}
+
+      override fun onActivitySaveInstanceState(activity: Activity, outState: Bundle) {}
+
+      override fun onActivityDestroyed(activity: Activity) {
+        paymentSheetActivity = null
+        context.currentActivity?.application?.unregisterActivityLifecycleCallbacks(this)
+      }
+    }
+
+    Handler(Looper.getMainLooper()).postDelayed({
+      paymentSheetActivity?.let {
+        it.finish()
+        paymentSheetTimedOut = true
+      }
+    }, timeout)
+
+    context.currentActivity?.application?.registerActivityLifecycleCallbacks(activityLifecycleCallbacks)
+
+    this.present(promise)
   }
 
   fun confirmPayment(promise: Promise) {
@@ -185,6 +317,15 @@ class PaymentSheetFragment(
         configuration = paymentSheetConfiguration,
         callback = onFlowControllerConfigure
       )
+    } else if (intentConfiguration != null) {
+      flowController?.configureWithIntentConfiguration(
+        intentConfiguration = intentConfiguration!!,
+        configuration = paymentSheetConfiguration,
+        callback = onFlowControllerConfigure
+      )
+    } else {
+      initPromise.resolve(createError(ErrorType.Failed.toString(), "One of `paymentIntentClientSecret`, `setupIntentClientSecret`, or `intentConfiguration` is required"))
+      return
     }
   }
 
@@ -198,7 +339,11 @@ class PaymentSheetFragment(
   }
 
   companion object {
-    const val TAG = "payment_sheet_launch_fragment"
+    internal const val TAG = "payment_sheet_launch_fragment"
+
+    internal fun createMissingInitError(): WritableMap {
+      return createError(PaymentSheetErrorType.Failed.toString(), "No payment sheet has been initialized yet. You must call `initPaymentSheet` before `presentPaymentSheet`.")
+    }
 
     internal fun buildGooglePayConfig(params: Bundle?): PaymentSheet.GooglePayConfiguration? {
       if (params == null) {
@@ -214,6 +359,41 @@ class PaymentSheetFragment(
         countryCode = countryCode,
         currencyCode = currencyCode
       )
+    }
+
+    @Throws(PaymentSheetException::class)
+    private fun buildIntentConfiguration(intentConfigurationParams: Bundle?): PaymentSheet.IntentConfiguration? {
+      if (intentConfigurationParams == null) {
+        return null
+      }
+      val modeParams = intentConfigurationParams.getBundle("mode")
+              ?: throw PaymentSheetException("If `intentConfiguration` is provided, `intentConfiguration.mode` is required")
+
+      return PaymentSheet.IntentConfiguration(
+        mode = buildIntentConfigurationMode(modeParams),
+        paymentMethodTypes = intentConfigurationParams.getStringArrayList("paymentMethodTypes")?.toList() ?: emptyList(),
+      )
+    }
+
+    private fun buildIntentConfigurationMode(modeParams: Bundle): PaymentSheet.IntentConfiguration.Mode {
+      val currencyCode = modeParams.getString("currencyCode")
+        ?: throw PaymentSheetException("You must provide a value to intentConfiguration.mode.currencyCode")
+
+      return if (modeParams.containsKey("amount")) {
+        PaymentSheet.IntentConfiguration.Mode.Payment(
+          amount = modeParams.getInt("amount").toLong(),
+          currency = currencyCode,
+          setupFutureUse = mapToSetupFutureUse(modeParams.getString("setupFutureUsage")),
+          captureMethod = mapToCaptureMethod(modeParams.getString("captureMethod")),
+        )
+      } else {
+        val setupFutureUsage = mapToSetupFutureUse(modeParams.getString("setupFutureUsage"))
+          ?: throw PaymentSheetException("You must provide a value to intentConfiguration.mode.setupFutureUsage")
+        PaymentSheet.IntentConfiguration.Mode.Setup(
+          currency = currencyCode,
+          setupFutureUse = setupFutureUsage
+        )
+      }
     }
   }
 }
@@ -238,4 +418,39 @@ fun getBase64FromBitmap(bitmap: Bitmap?): String? {
   bitmap.compress(Bitmap.CompressFormat.PNG, 100, stream)
   val imageBytes: ByteArray = stream.toByteArray()
   return Base64.encodeToString(imageBytes, Base64.DEFAULT)
+}
+
+fun mapToCollectionMode(str: String?): PaymentSheet.BillingDetailsCollectionConfiguration.CollectionMode {
+  return when (str) {
+    "automatic" -> PaymentSheet.BillingDetailsCollectionConfiguration.CollectionMode.Automatic
+    "never" -> PaymentSheet.BillingDetailsCollectionConfiguration.CollectionMode.Never
+    "always" -> PaymentSheet.BillingDetailsCollectionConfiguration.CollectionMode.Always
+    else -> PaymentSheet.BillingDetailsCollectionConfiguration.CollectionMode.Automatic
+  }
+}
+
+fun mapToAddressCollectionMode(str: String?): PaymentSheet.BillingDetailsCollectionConfiguration.AddressCollectionMode {
+  return when (str) {
+    "automatic" -> PaymentSheet.BillingDetailsCollectionConfiguration.AddressCollectionMode.Automatic
+    "never" -> PaymentSheet.BillingDetailsCollectionConfiguration.AddressCollectionMode.Never
+    "full" -> PaymentSheet.BillingDetailsCollectionConfiguration.AddressCollectionMode.Full
+    else -> PaymentSheet.BillingDetailsCollectionConfiguration.AddressCollectionMode.Automatic
+  }
+}
+
+fun mapToSetupFutureUse(type: String?): PaymentSheet.IntentConfiguration.SetupFutureUse? {
+  return when (type) {
+    "OffSession" ->  PaymentSheet.IntentConfiguration.SetupFutureUse.OffSession
+    "OnSession" ->  PaymentSheet.IntentConfiguration.SetupFutureUse.OnSession
+    else ->  null
+  }
+}
+
+fun mapToCaptureMethod(type: String?): PaymentSheet.IntentConfiguration.CaptureMethod {
+  return when (type) {
+    "Automatic" ->  PaymentSheet.IntentConfiguration.CaptureMethod.Automatic
+    "Manual" ->  PaymentSheet.IntentConfiguration.CaptureMethod.Manual
+    "AutomaticAsync" ->  PaymentSheet.IntentConfiguration.CaptureMethod.AutomaticAsync
+    else ->  PaymentSheet.IntentConfiguration.CaptureMethod.Automatic
+  }
 }

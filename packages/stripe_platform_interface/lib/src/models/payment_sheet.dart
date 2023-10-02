@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:stripe_platform_interface/src/models/color.dart';
@@ -41,6 +43,10 @@ class SetupPaymentSheetParameters with _$SetupPaymentSheetParameters {
 
     String? setupIntentClientSecret,
 
+    /// Use this when you want to collect payment information before creating a
+    /// setupintent or payment intent.
+    IntentConfiguration? intentConfiguration,
+
     /// Display name of the merchant
     String? merchantDisplayName,
 
@@ -48,7 +54,7 @@ class SetupPaymentSheetParameters with _$SetupPaymentSheetParameters {
     /// If set, PaymentSheet displays Apple Pay as a payment option
     PaymentSheetApplePay? applePay,
 
-    /// Style options for colors in PaymentSheet
+    /// iOS only style options for colors in PaymentSheet
     ///
     /// Parts can be overridden by [appearance].
     @JsonKey(toJson: UserInterfaceStyleKey.toJson) ThemeMode? style,
@@ -77,10 +83,56 @@ class SetupPaymentSheetParameters with _$SetupPaymentSheetParameters {
 
     /// Return URL is required for IDEAL and few other payment methods
     String? returnURL,
+
+    /// Configuration for how billing details are collected during checkout.
+    BillingDetailsCollectionConfiguration?
+        billingDetailsCollectionConfiguration,
   }) = _SetupParameters;
 
   factory SetupPaymentSheetParameters.fromJson(Map<String, dynamic> json) =>
       _$SetupPaymentSheetParametersFromJson(json);
+}
+
+@freezed
+class IntentConfiguration with _$IntentConfiguration {
+  @JsonSerializable(explicitToJson: true)
+  const factory IntentConfiguration({
+    /// Data related to the future payment intent
+    required IntentMode mode,
+
+    /// The list of payment method types that the customer can use in the payment sheet.
+    ///
+    /// If not set, the payment sheet will display all the payment methods enabled in your Stripe dashboard.
+    List<String>? paymentMethodTypes,
+
+    /// Called when the customer confirms payment. Your implementation should create
+    /// a payment intent or setupintent on your server and call the intent creation callback with its client secret or an error if one occurred.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    ConfirmHandler? confirmHandler,
+
+    /// Confirm handler
+  }) = _IntentConfiguration;
+
+  factory IntentConfiguration.fromJson(Map<String, dynamic> json) =>
+      _$IntentConfigurationFromJson(json);
+}
+
+@freezed
+class IntentMode with _$IntentMode {
+  @JsonSerializable(explicitToJson: true)
+  const factory IntentMode({
+    required String currencyCode,
+    required int amount,
+
+    /// Data related to the future payment intent
+    IntentFutureUsage? setupFutureUsage,
+
+    /// Capture method for the future payment intent
+    CaptureMethod? captureMethod,
+  }) = _IntentMode;
+
+  factory IntentMode.fromJson(Map<String, dynamic> json) =>
+      _$IntentModeFromJson(json);
 }
 
 /// Parameters related to the Payment sheet Apple Pay config.
@@ -93,7 +145,20 @@ class PaymentSheetApplePay with _$PaymentSheetApplePay {
 
     ///An array of CartSummaryItem item objects that summarize the amount of the payment. If you're using a SetupIntent
     /// for a recurring payment, you should set this to display the amount you intend to charge.
-    List<ApplePayCartSummaryItem>? paymentSummaryItems,
+    List<ApplePayCartSummaryItem>? cartItems,
+
+    /// Sets the the text displayed by the call to action button in the apple pay sheet.
+    PlatformButtonType? buttonType,
+
+    /// Use this for a different payment request than a one time request.
+    PaymentRequestType? request,
+
+    /// Callback function for setting the order details (retrieved from your server) to give users the
+    /// ability to track and manage their purchases in Wallet. Stripe calls your implementation after the
+    /// payment is complete, but before iOS dismisses the Apple Pay sheet. You must call the `completion`
+    /// function, or else the Apple Pay sheet will hang.
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    OnOrderTracking? setOrderTracking,
   }) = _PaymentSheetApplePay;
 
   factory PaymentSheetApplePay.fromJson(Map<String, dynamic> json) =>
@@ -146,41 +211,41 @@ class PaymentSheetAppearanceColors with _$PaymentSheetAppearanceColors {
     ///
     /// Make sure there is enough contrast with [background].
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? primary,
+    Color? primary,
 
     /// Background color of the payment sheet.
     ///
     /// Make sure there is enough contrast with [primary].
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? background,
+    Color? background,
 
     /// Background color of the payment sheet components.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? componentBackground,
+    Color? componentBackground,
 
     ///  Border color of the payment sheet components.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? componentBorder,
+    Color? componentBorder,
 
     ///  Divider color of the payment sheet components.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? componentDivider,
+    Color? componentDivider,
 
     /// Color of the entered text in the payment components.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? componentText,
+    Color? componentText,
 
     /// Primary text color.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? primaryText,
+    Color? primaryText,
 
     /// Secondary text color.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? secondaryText,
+    Color? secondaryText,
 
     /// Place holder text color.
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? placeholderText,
+    Color? placeholderText,
 
     /// Color of the displayed icons
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson) Color? icon,
@@ -303,14 +368,14 @@ class PaymentSheetPrimaryButtonThemeColors
   const factory PaymentSheetPrimaryButtonThemeColors({
     /// Primary button background color
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? background,
+    Color? background,
 
     /// Primary button text color
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson) Color? text,
 
     /// Primary button border color
     @JsonKey(toJson: ColorKey.toJson, fromJson: ColorKey.fromJson)
-        Color? border,
+    Color? border,
   }) = _PaymentSheetPrimaryButtonThemeColors;
 
   factory PaymentSheetPrimaryButtonThemeColors.fromJson(
@@ -359,3 +424,111 @@ class PresentPaymentSheetParameters with _$PresentPaymentSheetParameters {
   factory PresentPaymentSheetParameters.fromJson(Map<String, dynamic> json) =>
       _$PresentPaymentSheetParametersFromJson(json);
 }
+
+@freezed
+class PaymentSheetPresentOptions with _$PaymentSheetPresentOptions {
+  @JsonSerializable(explicitToJson: true)
+  const factory PaymentSheetPresentOptions({
+    /// The number of milliseconds (after presenting) before the Payment Sheet
+    /// closes automatically.
+    ///
+    /// At which point presentPaymentSheet` will resolve with an error.
+    int? timeout,
+  }) = _PaymentSheetPresentOptions;
+
+  factory PaymentSheetPresentOptions.fromJson(Map<String, dynamic> json) =>
+      _$PaymentSheetPresentOptionsFromJson(json);
+}
+
+@freezed
+class PaymentSheetPaymentOption with _$PaymentSheetPaymentOption {
+  @JsonSerializable(explicitToJson: true)
+  const factory PaymentSheetPaymentOption({
+    /// The label of the payment option
+    required String label,
+
+    /// String decoding of the image
+    required String image,
+  }) = _PaymentSheetPaymentOption;
+
+  factory PaymentSheetPaymentOption.fromJson(Map<String, dynamic> json) =>
+      _$PaymentSheetPaymentOptionFromJson(json);
+}
+
+@freezed
+class BillingDetailsCollectionConfiguration
+    with _$BillingDetailsCollectionConfiguration {
+  @JsonSerializable(explicitToJson: true)
+  const factory BillingDetailsCollectionConfiguration({
+    /// How to collect the name field.
+    ///
+    /// Defaults to `CollectionMode.automatic`.
+    CollectionMode? name,
+
+    /// How to collect the phone field.
+    ///
+    /// Defaults to `CollectionMode.automatic`.
+    CollectionMode? phone,
+
+    /// How to collect the email field.
+    ///
+    /// Defaults to `CollectionMode.automatic`.
+    CollectionMode? email,
+
+    /// How to collect the billing address.
+    ///
+    /// Defaults to `CollectionMode.automatic`.
+    AddressCollectionMode? address,
+
+    /// Whether the values included in `Configuration.defaultBillingDetails` should be attached to the payment method, this includes fields that aren't displayed in the form.
+    ///
+    /// If `false` (the default), those values will only be used to prefill the corresponding fields in the form.
+    bool? attachDefaultsToPaymentMethod,
+  }) = _BillingDetailsCollectionConfiguration;
+
+  factory BillingDetailsCollectionConfiguration.fromJson(
+          Map<String, dynamic> json) =>
+      _$BillingDetailsCollectionConfigurationFromJson(json);
+}
+
+/// Types of how to collect non address fields
+enum CollectionMode {
+  /// The field may or may not be collected depending on the Payment Method's requirements.
+  automatic,
+
+  /// The field will never be collected.
+  ///
+  /// If this field is required by the Payment Method, you must provide it as part of `defaultBillingDetails`.
+  never,
+
+  /// The field will always be collected, even if it isn't required for the Payment Method.
+  always,
+}
+
+/// Types of how to collect the address.
+enum AddressCollectionMode {
+  /// Only the fields required by the Payment Method will be collected, which may be none.
+  automatic,
+
+  /// Billing address will never be collected.
+  ///
+  /// If the Payment Method requires a billing address, you must provide it as part of `defaultBillingDetails`.
+  never,
+
+  /// Collect the full billing address, regardless of the Payment Method's requirements. */
+  full,
+}
+
+/// The type of payment method to attach to a Customer.
+enum IntentFutureUsage {
+  /// The payment method will be used for future off-session payments.
+  OffSession,
+
+  /// The payment method will be used for future on-session payments.
+  OnSession,
+}
+
+typedef ConfirmHandler = void Function(
+  PaymentMethod result,
+  bool shouldSavePaymentMethod,
+);

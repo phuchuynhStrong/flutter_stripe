@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'apple_pay.freezed.dart';
@@ -34,17 +36,48 @@ enum ApplePayContactFieldsType {
   postalAddress
 }
 
+/// A type that indicates how to ship purchased items
+enum ApplePayShippingType {
+  storePickup,
+  servicePickup,
+  delivery,
+  shipping,
+}
+
 @freezed
 
-///
+/// Shipping method details regarding apple pay
 class ApplePayShippingMethod with _$ApplePayShippingMethod {
   @JsonSerializable(explicitToJson: true)
   const factory ApplePayShippingMethod({
+    ///  A short, localized description.
     required String label,
+
+    /// The cost associated with this shipping option.
     required String amount,
+
+    /// A unique identifier for the shipping method.
     required String identifier,
+
+    /// When creating items for estimates or charges whose final value is not yet known, set this to true.
+    ///
+    /// Defaults to false.
     bool? isPending,
+
+    ///  A user-readable description of the shipping method.
+    ///
+    /// For example “Ships in 24 hours.” Don't repeat content
     String? detail,
+
+    ///  The unix timestamp of the start date of the expected range of delivery or shipping dates for a package, or the time range when an item is available for pickup.
+    ///
+    /// Measured in seconds
+    int? startDate,
+
+    ///  The unix timestamp of the end date of the expected range of delivery or shipping dates for a package, or the time range when an item is available for pickup.
+    ///
+    /// Measured in seconds.
+    int? endDate,
   }) = _ApplePayShippingMethod;
 
   factory ApplePayShippingMethod.fromJson(Map<String, dynamic> json) =>
@@ -68,7 +101,7 @@ class ApplePayCartSummaryItem with _$ApplePayCartSummaryItem {
 
     /// When creating items for estimates or charges whose final value is not yet known, set this to true.
     bool? isPending,
-  }) = _ImmediateCartSummaryItem;
+  }) = ImmediateCartSummaryItem;
 
   @JsonSerializable(explicitToJson: true)
   @FreezedUnionValue('Deferred')
@@ -83,7 +116,7 @@ class ApplePayCartSummaryItem with _$ApplePayCartSummaryItem {
 
     /// The unix timestamp of the date, in the future, of the payment. Measured in seconds.
     required int deferredDate,
-  }) = _DeferredSummaryItem;
+  }) = DeferredSummaryItem;
 
   @JsonSerializable(explicitToJson: true)
   @FreezedUnionValue('Recurring')
@@ -106,13 +139,19 @@ class ApplePayCartSummaryItem with _$ApplePayCartSummaryItem {
     int? startDate,
     ////The unix timestamp of the end date. Measured in seconds. */
     int? number,
-  }) = _RecurringCartSummaryItem;
+  }) = RecurringCartSummaryItem;
 
   factory ApplePayCartSummaryItem.fromJson(Map<String, dynamic> json) =>
       _$ApplePayCartSummaryItemFromJson(json);
 }
 
 enum ApplePayIntervalUnit { minute, hour, day, month, year }
+
+enum ApplePayMerchantCapability {
+  supports3DS,
+  supportsCredit,
+  supportsDebit,
+}
 
 @freezed
 class ApplePayPresentParams with _$ApplePayPresentParams {
@@ -224,6 +263,10 @@ class ApplePayPostalAddress with _$ApplePayPostalAddress {
       _$ApplePayPostalAddressFromJson(json);
 }
 
-typedef OnDidSetShippingContact = void Function(
+typedef OnDidSetShippingContact = FutureOr<void> Function(
     ApplePayShippingContact contact);
-typedef OnDidSetShippingMethod = void Function(ApplePayShippingMethod method);
+typedef OnDidSetShippingMethod = FutureOr<void> Function(
+    ApplePayShippingMethod method);
+typedef OnCouponCodeEntered = FutureOr<void> Function(String couponCode);
+
+typedef OnOrderTracking = FutureOr<void> Function();

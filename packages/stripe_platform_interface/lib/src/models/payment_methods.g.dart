@@ -101,6 +101,10 @@ _$_Card _$$_CardFromJson(Map<String, dynamic> json) => _$_Card(
       availableNetworks: (json['availableNetworks'] as List<dynamic>?)
           ?.map((e) => e as String)
           .toList(),
+      threeDSecureUsage: json['threeDSecureUsage'] == null
+          ? null
+          : ThreeDSecureUsage.fromJson(
+              json['threeDSecureUsage'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_CardToJson(_$_Card instance) => <String, dynamic>{
@@ -112,6 +116,7 @@ Map<String, dynamic> _$$_CardToJson(_$_Card instance) => <String, dynamic>{
       'last4': instance.last4,
       'preferredNetwork': instance.preferredNetwork,
       'availableNetworks': instance.availableNetworks,
+      'threeDSecureUsage': instance.threeDSecureUsage?.toJson(),
     };
 
 _$_Fpx _$$_FpxFromJson(Map<String, dynamic> json) => _$_Fpx(
@@ -265,6 +270,21 @@ _$_PaymentMethodParamsAlipay _$$_PaymentMethodParamsAlipayFromJson(
 
 Map<String, dynamic> _$$_PaymentMethodParamsAlipayToJson(
         _$_PaymentMethodParamsAlipay instance) =>
+    <String, dynamic>{
+      'paymentMethodData': instance.paymentMethodData.toJson(),
+      'paymentMethodType': instance.$type,
+    };
+
+_$_PaymentMethodParamsCashAppPay _$$_PaymentMethodParamsCashAppPayFromJson(
+        Map<String, dynamic> json) =>
+    _$_PaymentMethodParamsCashAppPay(
+      paymentMethodData: PaymentMethodData.fromJson(
+          json['paymentMethodData'] as Map<String, dynamic>),
+      $type: json['paymentMethodType'] as String?,
+    );
+
+Map<String, dynamic> _$$_PaymentMethodParamsCashAppPayToJson(
+        _$_PaymentMethodParamsCashAppPay instance) =>
     <String, dynamic>{
       'paymentMethodData': instance.paymentMethodData.toJson(),
       'paymentMethodType': instance.$type,
@@ -521,6 +541,9 @@ _$_PaymentMethodData _$$_PaymentMethodDataFromJson(Map<String, dynamic> json) =>
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataToJson(
@@ -528,6 +551,7 @@ Map<String, dynamic> _$$_PaymentMethodDataToJson(
     <String, dynamic>{
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataCardFromToken _$$_PaymentMethodDataCardFromTokenFromJson(
@@ -542,6 +566,9 @@ _$_PaymentMethodDataCardFromToken _$$_PaymentMethodDataCardFromTokenFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataCardFromTokenToJson(
@@ -550,6 +577,7 @@ Map<String, dynamic> _$$_PaymentMethodDataCardFromTokenToJson(
       'token': instance.token,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataCardFromMethod _$$_PaymentMethodDataCardFromMethodFromJson(
@@ -565,6 +593,9 @@ _$_PaymentMethodDataCardFromMethod _$$_PaymentMethodDataCardFromMethodFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataCardFromMethodToJson(
@@ -574,6 +605,7 @@ Map<String, dynamic> _$$_PaymentMethodDataCardFromMethodToJson(
       'cvc': instance.cvc,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataIdeal _$$_PaymentMethodDataIdealFromJson(
@@ -588,6 +620,9 @@ _$_PaymentMethodDataIdeal _$$_PaymentMethodDataIdealFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataIdealToJson(
@@ -596,6 +631,7 @@ Map<String, dynamic> _$$_PaymentMethodDataIdealToJson(
       'bankName': instance.bankName,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataAubecs _$$_PaymentMethodDataAubecsFromJson(
@@ -611,6 +647,9 @@ _$_PaymentMethodDataAubecs _$$_PaymentMethodDataAubecsFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataAubecsToJson(
@@ -619,6 +658,7 @@ Map<String, dynamic> _$$_PaymentMethodDataAubecsToJson(
       'formDetails': instance.formDetails.toJson(),
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataFpx _$$_PaymentMethodDataFpxFromJson(
@@ -633,6 +673,9 @@ _$_PaymentMethodDataFpx _$$_PaymentMethodDataFpxFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataFpxToJson(
@@ -641,6 +684,7 @@ Map<String, dynamic> _$$_PaymentMethodDataFpxToJson(
       'testOfflineBank': instance.testOfflineBank,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataSofort _$$_PaymentMethodDataSofortFromJson(
@@ -655,6 +699,9 @@ _$_PaymentMethodDataSofort _$$_PaymentMethodDataSofortFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataSofortToJson(
@@ -663,6 +710,7 @@ Map<String, dynamic> _$$_PaymentMethodDataSofortToJson(
       'country': instance.country,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataSepa _$$_PaymentMethodDataSepaFromJson(
@@ -677,6 +725,9 @@ _$_PaymentMethodDataSepa _$$_PaymentMethodDataSepaFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataSepaToJson(
@@ -685,6 +736,7 @@ Map<String, dynamic> _$$_PaymentMethodDataSepaToJson(
       'iban': instance.iban,
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataAfterPay _$$_PaymentMethodDataAfterPayFromJson(
@@ -696,6 +748,9 @@ _$_PaymentMethodDataAfterPay _$$_PaymentMethodDataAfterPayFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataAfterPayToJson(
@@ -703,6 +758,7 @@ Map<String, dynamic> _$$_PaymentMethodDataAfterPayToJson(
     <String, dynamic>{
       'billingDetails': instance.billingDetails.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodDataUsBank _$$_PaymentMethodDataUsBankFromJson(
@@ -722,6 +778,9 @@ _$_PaymentMethodDataUsBank _$$_PaymentMethodDataUsBankFromJson(
           ? null
           : ShippingDetails.fromJson(
               json['shippingDetails'] as Map<String, dynamic>),
+      mandateData: json['mandateData'] == null
+          ? null
+          : MandateData.fromJson(json['mandateData'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentMethodDataUsBankToJson(
@@ -734,6 +793,7 @@ Map<String, dynamic> _$$_PaymentMethodDataUsBankToJson(
       'accountType': _$UsBankAccountTypeEnumMap[instance.accountType],
       'billingDetails': instance.billingDetails?.toJson(),
       'shippingDetails': instance.shippingDetails?.toJson(),
+      'mandateData': instance.mandateData?.toJson(),
     };
 
 _$_PaymentMethodOptions _$$_PaymentMethodOptionsFromJson(
@@ -754,3 +814,56 @@ const _$PaymentIntentsFutureUsageEnumMap = {
   PaymentIntentsFutureUsage.OffSession: 'OffSession',
   PaymentIntentsFutureUsage.OnSession: 'OnSession',
 };
+
+_$_MandateData _$$_MandateDataFromJson(Map<String, dynamic> json) =>
+    _$_MandateData(
+      customerAcceptance: json['customerAcceptance'] == null
+          ? null
+          : MandateDataCustomerAcceptance.fromJson(
+              json['customerAcceptance'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$_MandateDataToJson(_$_MandateData instance) =>
+    <String, dynamic>{
+      'customerAcceptance': instance.customerAcceptance?.toJson(),
+    };
+
+_$_MandateDataCustomerAcceptance _$$_MandateDataCustomerAcceptanceFromJson(
+        Map<String, dynamic> json) =>
+    _$_MandateDataCustomerAcceptance(
+      ipAddress: json['ipAddress'] == null
+          ? null
+          : MandateDataOnlineData.fromJson(
+              json['ipAddress'] as Map<String, dynamic>),
+    );
+
+Map<String, dynamic> _$$_MandateDataCustomerAcceptanceToJson(
+        _$_MandateDataCustomerAcceptance instance) =>
+    <String, dynamic>{
+      'ipAddress': instance.ipAddress?.toJson(),
+    };
+
+_$_MandateDataOnlineData _$$_MandateDataOnlineDataFromJson(
+        Map<String, dynamic> json) =>
+    _$_MandateDataOnlineData(
+      ipAddress: json['ipAddress'] as String?,
+      userAgent: json['userAgent'] as String?,
+    );
+
+Map<String, dynamic> _$$_MandateDataOnlineDataToJson(
+        _$_MandateDataOnlineData instance) =>
+    <String, dynamic>{
+      'ipAddress': instance.ipAddress,
+      'userAgent': instance.userAgent,
+    };
+
+_$_ThreeDSecureUsage _$$_ThreeDSecureUsageFromJson(Map<String, dynamic> json) =>
+    _$_ThreeDSecureUsage(
+      isSupported: json['isSupported'] as bool?,
+    );
+
+Map<String, dynamic> _$$_ThreeDSecureUsageToJson(
+        _$_ThreeDSecureUsage instance) =>
+    <String, dynamic>{
+      'isSupported': instance.isSupported,
+    };

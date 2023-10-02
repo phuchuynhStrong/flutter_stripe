@@ -41,6 +41,11 @@ abstract class StripePlatform extends PlatformInterface {
 
   Future<PaymentIntent> handleNextAction(String paymentIntentClientSecret,
       {String? returnURL});
+
+  Future<SetupIntent> handleNextActionForSetupIntent(
+      String setupIntentClientSecret,
+      {String? returnURL});
+
   Future<PaymentIntent> confirmPayment(
     String paymentIntentClientSecret,
     PaymentMethodParams? params,
@@ -48,13 +53,15 @@ abstract class StripePlatform extends PlatformInterface {
     /// Paymentmethod options
     PaymentMethodOptions? options,
   );
-  Future<bool> isApplePaySupported() async => false;
 
   /// Configure the payment sheet using [SetupPaymentSheetParameters] as config.
-  Future<void> initPaymentSheet(SetupPaymentSheetParameters params);
+  Future<PaymentSheetPaymentOption?> initPaymentSheet(
+      SetupPaymentSheetParameters params);
 
   /// Display the payment sheet.
-  Future<void> presentPaymentSheet();
+  Future<PaymentSheetPaymentOption?> presentPaymentSheet({
+    PaymentSheetPresentOptions? options,
+  });
 
   /// Reset the payment sheet.
   Future<void> resetPaymentSheetCustomer();
@@ -63,27 +70,49 @@ abstract class StripePlatform extends PlatformInterface {
   Future<void> confirmPaymentSheetPayment();
 
   Future<void> openApplePaySetup();
-  Future<void> presentApplePay(
-    ApplePayPresentParams params,
-    OnDidSetShippingContact? onDidSetShippingContact,
-    OnDidSetShippingMethod? onDidSetShippingMethod,
-  );
-  Future<void> confirmApplePayPayment(String clientSecret);
+
   Future<TokenData> createApplePayToken(Map<String, dynamic> payment);
-  Future<void> updateApplePaySummaryItems({
-    required List<ApplePayCartSummaryItem> summaryItems,
-    List<ApplePayErrorAddressField>? errorAddressFields,
-  });
 
   Future<bool> handleURLCallback(String url);
 
   Future<void> initGooglePay(GooglePayInitParams params);
   Future<void> presentGooglePay(PresentGooglePayParams params);
+
+  @Deprecated('This method is deprecated use [isPlatformPaySupported] instead')
   Future<bool> googlePayIsSupported(IsGooglePaySupportedParams params);
   Future<PaymentMethod> createGooglePayPaymentMethod(
       CreateGooglePayPaymentParams params);
 
   Future<AddToWalletResult> canAddToWallet(String last4);
+
+  /// Check if either google pay or apple pay  is supported on device.
+  Future<bool> isPlatformPaySupported({
+    IsGooglePaySupportedParams? params,
+  });
+
+  /// Start native Payment sheet to confirm setup intent
+  Future<SetupIntent> platformPayConfirmSetupIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams params,
+  });
+
+  /// Start native Payment sheet to confirm payment intent
+  Future<PaymentIntent> platformPayConfirmPaymentIntent({
+    required String clientSecret,
+    required PlatformPayConfirmParams params,
+  });
+
+  /// Use native payment sheet to create payment method
+  Future<PaymentMethod> platformPayCreatePaymentMethod({
+    required PlatformPayPaymentMethodParams params,
+    bool usesDeprecatedTokenFlow = false,
+  });
+
+  Future<void> updatePlatformSheet(
+      {required PlatformPaySheetUpdateParams params});
+
+  Future<void> configurePlatformOrderTracking(
+      {required PlatformPayOrderDetails orderDetails});
 
   /// Creates a token for card details.
   ///
@@ -95,6 +124,7 @@ abstract class StripePlatform extends PlatformInterface {
     PaymentMethodOptions? options,
   );
   Future<PaymentIntent> retrievePaymentIntent(String clientSecret);
+  Future<SetupIntent> retrieveSetupIntent(String clientSecret);
   Future<String> createTokenForCVCUpdate(String cvc);
 
   /// Methods related to ACH payments
@@ -124,6 +154,10 @@ abstract class StripePlatform extends PlatformInterface {
   /// or storing full card details! See the docs for
   /// details: https://stripe.com/docs/security/guide#validating-pci-compliance
   Future<void> dangerouslyUpdateCardDetails(CardDetails card);
+
+  /// Method used to confirm to the user that the intent is created successfull
+  /// or not successfull when using a defferred payment method.
+  Future<void> intentCreationCallback(IntentCreationCallbackParams params);
 
   Widget buildCard({
     Key? key,

@@ -1,3 +1,5 @@
+// ignore_for_file: constant_identifier_names
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 part 'google_pay.freezed.dart';
@@ -115,11 +117,21 @@ class IsGooglePaySupportedParams with _$IsGooglePaySupportedParams {
     ///
     /// Defaults to `false`.
     @Default(false) bool existingPaymentMethodRequired,
+
+    // When set to true it allow users without NFC-enabled devices to add cards to the wallet.
+    //
+    //NFC is required for paying in stores. Defaults to `true`. Set this to `false`
+    @Default(true) bool supportsTapToPay,
   }) = _IsGooglePaySupportedParams;
 
   factory IsGooglePaySupportedParams.fromJson(Map<String, dynamic> json) =>
       _$IsGooglePaySupportedParamsFromJson(json);
 }
 
-// ignore: constant_identifier_names
-enum BillingAddressFormat { FULL, MIN }
+enum BillingAddressFormat {
+  /// Collect name, street address, locality, region, country code, and postal code.
+  FULL,
+
+  /// Collect name, country code, and postal code (default).
+  MIN
+}

@@ -14,6 +14,10 @@ _$_SetupParameters _$$_SetupParametersFromJson(Map<String, dynamic> json) =>
       customerEphemeralKeySecret: json['customerEphemeralKeySecret'] as String?,
       paymentIntentClientSecret: json['paymentIntentClientSecret'] as String?,
       setupIntentClientSecret: json['setupIntentClientSecret'] as String?,
+      intentConfiguration: json['intentConfiguration'] == null
+          ? null
+          : IntentConfiguration.fromJson(
+              json['intentConfiguration'] as Map<String, dynamic>),
       merchantDisplayName: json['merchantDisplayName'] as String?,
       applePay: json['applePay'] == null
           ? null
@@ -35,6 +39,12 @@ _$_SetupParameters _$$_SetupParametersFromJson(Map<String, dynamic> json) =>
           : BillingDetails.fromJson(
               json['defaultBillingDetails'] as Map<String, dynamic>),
       returnURL: json['returnURL'] as String?,
+      billingDetailsCollectionConfiguration:
+          json['billingDetailsCollectionConfiguration'] == null
+              ? null
+              : BillingDetailsCollectionConfiguration.fromJson(
+                  json['billingDetailsCollectionConfiguration']
+                      as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_SetupParametersToJson(_$_SetupParameters instance) =>
@@ -45,6 +55,7 @@ Map<String, dynamic> _$$_SetupParametersToJson(_$_SetupParameters instance) =>
       'customerEphemeralKeySecret': instance.customerEphemeralKeySecret,
       'paymentIntentClientSecret': instance.paymentIntentClientSecret,
       'setupIntentClientSecret': instance.setupIntentClientSecret,
+      'intentConfiguration': instance.intentConfiguration?.toJson(),
       'merchantDisplayName': instance.merchantDisplayName,
       'applePay': instance.applePay?.toJson(),
       'style': UserInterfaceStyleKey.toJson(instance.style),
@@ -53,6 +64,8 @@ Map<String, dynamic> _$$_SetupParametersToJson(_$_SetupParameters instance) =>
       'appearance': instance.appearance?.toJson(),
       'defaultBillingDetails': instance.billingDetails?.toJson(),
       'returnURL': instance.returnURL,
+      'billingDetailsCollectionConfiguration':
+          instance.billingDetailsCollectionConfiguration?.toJson(),
     };
 
 const _$ThemeModeEnumMap = {
@@ -61,23 +74,97 @@ const _$ThemeModeEnumMap = {
   ThemeMode.dark: 'dark',
 };
 
+_$_IntentConfiguration _$$_IntentConfigurationFromJson(
+        Map<String, dynamic> json) =>
+    _$_IntentConfiguration(
+      mode: IntentMode.fromJson(json['mode'] as Map<String, dynamic>),
+      paymentMethodTypes: (json['paymentMethodTypes'] as List<dynamic>?)
+          ?.map((e) => e as String)
+          .toList(),
+    );
+
+Map<String, dynamic> _$$_IntentConfigurationToJson(
+        _$_IntentConfiguration instance) =>
+    <String, dynamic>{
+      'mode': instance.mode.toJson(),
+      'paymentMethodTypes': instance.paymentMethodTypes,
+    };
+
+_$_IntentMode _$$_IntentModeFromJson(Map<String, dynamic> json) =>
+    _$_IntentMode(
+      currencyCode: json['currencyCode'] as String,
+      amount: json['amount'] as int,
+      setupFutureUsage: $enumDecodeNullable(
+          _$IntentFutureUsageEnumMap, json['setupFutureUsage']),
+      captureMethod:
+          $enumDecodeNullable(_$CaptureMethodEnumMap, json['captureMethod']),
+    );
+
+Map<String, dynamic> _$$_IntentModeToJson(_$_IntentMode instance) =>
+    <String, dynamic>{
+      'currencyCode': instance.currencyCode,
+      'amount': instance.amount,
+      'setupFutureUsage': _$IntentFutureUsageEnumMap[instance.setupFutureUsage],
+      'captureMethod': _$CaptureMethodEnumMap[instance.captureMethod],
+    };
+
+const _$IntentFutureUsageEnumMap = {
+  IntentFutureUsage.OffSession: 'OffSession',
+  IntentFutureUsage.OnSession: 'OnSession',
+};
+
+const _$CaptureMethodEnumMap = {
+  CaptureMethod.Manual: 'Manual',
+  CaptureMethod.Automatic: 'Automatic',
+  CaptureMethod.AutomaticAsync: 'AutomaticAsync',
+};
+
 _$_PaymentSheetApplePay _$$_PaymentSheetApplePayFromJson(
         Map<String, dynamic> json) =>
     _$_PaymentSheetApplePay(
       merchantCountryCode: json['merchantCountryCode'] as String,
-      paymentSummaryItems: (json['paymentSummaryItems'] as List<dynamic>?)
+      cartItems: (json['cartItems'] as List<dynamic>?)
           ?.map((e) =>
               ApplePayCartSummaryItem.fromJson(e as Map<String, dynamic>))
           .toList(),
+      buttonType:
+          $enumDecodeNullable(_$PlatformButtonTypeEnumMap, json['buttonType']),
+      request: json['request'] == null
+          ? null
+          : PaymentRequestType.fromJson(
+              json['request'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$$_PaymentSheetApplePayToJson(
         _$_PaymentSheetApplePay instance) =>
     <String, dynamic>{
       'merchantCountryCode': instance.merchantCountryCode,
-      'paymentSummaryItems':
-          instance.paymentSummaryItems?.map((e) => e.toJson()).toList(),
+      'cartItems': instance.cartItems?.map((e) => e.toJson()).toList(),
+      'buttonType': _$PlatformButtonTypeEnumMap[instance.buttonType],
+      'request': instance.request?.toJson(),
     };
+
+const _$PlatformButtonTypeEnumMap = {
+  PlatformButtonType.plain: 'plain',
+  PlatformButtonType.buy: 'buy',
+  PlatformButtonType.setUp: 'setUp',
+  PlatformButtonType.inStore: 'inStore',
+  PlatformButtonType.donate: 'donate',
+  PlatformButtonType.checkout: 'checkout',
+  PlatformButtonType.book: 'book',
+  PlatformButtonType.subscribe: 'subscribe',
+  PlatformButtonType.reload: 'reload',
+  PlatformButtonType.addMoney: 'addMoney',
+  PlatformButtonType.topUp: 'topUp',
+  PlatformButtonType.order: 'order',
+  PlatformButtonType.rent: 'rent',
+  PlatformButtonType.support: 'support',
+  PlatformButtonType.contribute: 'contribute',
+  PlatformButtonType.tip: 'tip',
+  PlatformButtonType.advance: 'advance',
+  PlatformButtonType.pay: 'pay',
+  PlatformButtonType.googlePayMark: 'googlePayMark',
+};
 
 _$_PaymentSheetGooglePay _$$_PaymentSheetGooglePayFromJson(
         Map<String, dynamic> json) =>
@@ -291,3 +378,64 @@ Map<String, dynamic> _$$_PresentParametersToJson(
       'clientSecret': instance.clientSecret,
       'confirmPayment': instance.confirmPayment,
     };
+
+_$_PaymentSheetPresentOptions _$$_PaymentSheetPresentOptionsFromJson(
+        Map<String, dynamic> json) =>
+    _$_PaymentSheetPresentOptions(
+      timeout: json['timeout'] as int?,
+    );
+
+Map<String, dynamic> _$$_PaymentSheetPresentOptionsToJson(
+        _$_PaymentSheetPresentOptions instance) =>
+    <String, dynamic>{
+      'timeout': instance.timeout,
+    };
+
+_$_PaymentSheetPaymentOption _$$_PaymentSheetPaymentOptionFromJson(
+        Map<String, dynamic> json) =>
+    _$_PaymentSheetPaymentOption(
+      label: json['label'] as String,
+      image: json['image'] as String,
+    );
+
+Map<String, dynamic> _$$_PaymentSheetPaymentOptionToJson(
+        _$_PaymentSheetPaymentOption instance) =>
+    <String, dynamic>{
+      'label': instance.label,
+      'image': instance.image,
+    };
+
+_$_BillingDetailsCollectionConfiguration
+    _$$_BillingDetailsCollectionConfigurationFromJson(
+            Map<String, dynamic> json) =>
+        _$_BillingDetailsCollectionConfiguration(
+          name: $enumDecodeNullable(_$CollectionModeEnumMap, json['name']),
+          phone: $enumDecodeNullable(_$CollectionModeEnumMap, json['phone']),
+          email: $enumDecodeNullable(_$CollectionModeEnumMap, json['email']),
+          address: $enumDecodeNullable(
+              _$AddressCollectionModeEnumMap, json['address']),
+          attachDefaultsToPaymentMethod:
+              json['attachDefaultsToPaymentMethod'] as bool?,
+        );
+
+Map<String, dynamic> _$$_BillingDetailsCollectionConfigurationToJson(
+        _$_BillingDetailsCollectionConfiguration instance) =>
+    <String, dynamic>{
+      'name': _$CollectionModeEnumMap[instance.name],
+      'phone': _$CollectionModeEnumMap[instance.phone],
+      'email': _$CollectionModeEnumMap[instance.email],
+      'address': _$AddressCollectionModeEnumMap[instance.address],
+      'attachDefaultsToPaymentMethod': instance.attachDefaultsToPaymentMethod,
+    };
+
+const _$CollectionModeEnumMap = {
+  CollectionMode.automatic: 'automatic',
+  CollectionMode.never: 'never',
+  CollectionMode.always: 'always',
+};
+
+const _$AddressCollectionModeEnumMap = {
+  AddressCollectionMode.automatic: 'automatic',
+  AddressCollectionMode.never: 'never',
+  AddressCollectionMode.full: 'full',
+};
